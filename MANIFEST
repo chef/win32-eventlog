@@ -1,0 +1,16 @@
+* MANIFEST
+* CHANGES
+* README
+* Rakefile
+* win32-eventlog.gemspec
+* doc/tutorial.txt
+* examples/example_read.rb
+* examples/example_write.rb
+* examples/example_notify.rb
+* lib/win32/eventlog.rb
+* lib/win32/mc.rb
+* misc/install_msg.rb
+* misc/rubymsg.mc
+* test/foo.mc
+* test/test_eventlog.rb
+* test/test_mc.rb
