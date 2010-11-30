@@ -1,46 +1,58 @@
 require 'rake'
+require 'rake/clean'
 require 'rake/testtask'
 
-desc 'Install win32-eventlog and win32-mc (non-gem)'
-task :install do
-   dest = File.join(Config::CONFIG['sitelibdir'], 'win32')
-   Dir.mkdir(dest) unless File.exists? dest
-   cp 'lib/win32/eventlog.rb', dest, :verbose => true
-   cp 'lib/win32/mc.rb', dest, :verbose => true
+CLEAN.include('**/*.gem', '**/*.rbc')
+
+namespace :gem do
+  desc 'Create the win32-eventlog gem'
+  task :create => [:clean] do
+    spec = eval(IO.read('win32-eventlog.gemspec'))
+    Gem::Builder.new(spec).build
+  end
+
+  desc 'Install the win32-eventlog gem'
+  task :install => [:create] do
+    ruby 'win32-eventlog.gemspec'
+    file = Dir["*.gem"].first
+    sh "gem install #{file}"
+  end
 end
 
-desc 'Install the win32-eventlog library as a gem'
-task :install_gem do
-   ruby 'win32-eventlog.gemspec'
-   file = Dir["*.gem"].first
-   sh "gem install #{file}"
+namespace :example do
+  desc 'Run the notify (tail) example program'
+  task :notify do
+    ruby '-Ilib examples/example_notify.rb'
+  end
+
+  desc 'Run the read example program'
+  task :read do
+    ruby '-Ilib examples/example_read.rb'
+  end
+
+  desc 'Run the write example program'
+  task :write do
+    ruby '-Ilib examples/example_write.rb'
+  end
 end
 
-desc 'Run the notify (tail) example program'
-task :example_notify do
-   ruby '-Ilib examples/example_notify.rb'end
-
-desc 'Run the read example program'
-task :example_read do
-   ruby '-Ilib examples/example_read.rb'end
-
-desc 'Run the write example program'
-task :example_write do
-   ruby '-Ilib examples/example_write.rb'end
-
-Rake::TestTask.new(:test) do |t|
-   t.warning = true
-   t.verbose = true
+Rake::TestTask.new do |t|
+  t.warning = true
+  t.verbose = true
 end
 
-Rake::TestTask.new(:test_eventlog) do |t|
-   t.warning    = true
-   t.verbose    = true
-   t.test_files = Dir['test/test_eventlog.rb']
+namespace :test do
+  Rake::TestTask.new(:eventlog) do |t|
+    t.warning    = true
+    t.verbose    = true
+    t.test_files = Dir['test/test_eventlog.rb']
+  end
+
+  Rake::TestTask.new(:mc) do |t|
+    t.warning    = true
+    t.verbose    = true
+    t.test_files = Dir['test/test_mc.rb']
+  end
 end
 
-Rake::TestTask.new(:test_mc) do |t|
-   t.warning    = true
-   t.verbose    = true
-   t.test_files = Dir['test/test_mc.rb']
-end
+task :default => :test
