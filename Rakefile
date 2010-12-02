@@ -36,6 +36,13 @@ namespace :example do
   end
 end
 
+namespace :event_source do
+  desc 'Install the RubyMsg event source'
+  task :install do
+    sh "ruby -Ilib misc/install_msg.rb"
+  end
+end
+
 Rake::TestTask.new do |t|
   t.warning = true
   t.verbose = true

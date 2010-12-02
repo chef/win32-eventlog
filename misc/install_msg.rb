@@ -1,4 +1,4 @@
-##############################################################################
+###############################################################################
 # install_msg.rb
 #
 # This script will create a 'RubyMsg' event source in your registry.  All of
@@ -13,36 +13,34 @@
 # proper directory.
 #
 # You should only run this script *after* you have installed win32-eventlog.
-##############################################################################
-require "rbconfig"
-require "fileutils"
-require "win32/eventlog"
-require "win32/mc"
+###############################################################################
+require 'rbconfig'
+require 'fileutils'
+require 'win32/eventlog'
+require 'win32/mc'
 include Win32
-include Config
 
-prefix  = CONFIG["prefix"]
-msgdir  = prefix + '/rubymsg'
-msgfile = 'rubymsg.mc'
+msg_dir  = File.join(Config::CONFIG['prefix'], 'rubymsg')
+msg_file = 'rubymsg.mc'
 
-Dir.mkdir(msgdir) unless File.exists?(msgdir)
-FileUtils.cp("lib/rubymsg.mc",msgdir)
-Dir.chdir(msgdir)
+Dir.mkdir(msg_dir) unless File.exists?(msg_dir)
+FileUtils.cp('misc/rubymsg.mc', msg_dir)
+Dir.chdir(msg_dir)
 
-m = MC.new(msgfile)
-m.create_all
+mc = Win32::MC.new(msg_file)
+mc.create_all
 
 puts ".dll created"
 
 dll_file = File.expand_path(m.dll_file)
 
 # Change 'Application' to whatever you feel is appropriate
-EventLog.add_event_source(
-   'source'                => "Application",
-   'key_name'              => "RubyMsg",
-   'category_count'        => 3,
-   'event_message_file'    => dll_file,
-   'category_message_file' => dll_file
+Win32::EventLog.add_event_source(
+  :source                => "Application",
+  :key_name              => "RubyMsg",
+  :category_count        => 3,
+  :event_message_file    => dll_file,
+  :category_message_file => dll_file
 )
 
 puts "Event source 'RubyMsg' added to registry"
