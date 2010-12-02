@@ -1,3 +1,6 @@
+== 0.5.3 - ???
+* Refactored the Rakefile and tests.
+
 == 0.5.2 - 21-Aug-2009
 * EventLogStruct's are now frozen on read operations. This is read-only data.
 * Added a test to validate that structs are frozen.
@@ -103,7 +106,7 @@
 * Added the EventLog#full? method.
 * Documentation updates and corrections, including the tutorial on creating
   and writing to your own event source.
-  
+
 == 0.3.3 - 2-Jan-2006
 * If EventLog.new fails, it now raises EventLogError instead of StandardError.
 * Added documentation to the eventlog.txt file for EventLog#notify_change.
@@ -129,7 +132,7 @@
   no block is given.
 * Added the 'rubymsg.mc' message category file.  If installed, this will
   create a 'RubyMsg' event source for use with win32-service, though you
-  may use it for whatever you wish.  See the README for more details. 
+  may use it for whatever you wish.  See the README for more details.
 * Renamed struct back to EventLogStruct - sorry, sorry - I promise I won't
   change this again.
 * Fixed a bug where using EventLog::SEEK_READ did not work properly (thanks
