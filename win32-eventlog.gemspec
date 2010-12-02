@@ -2,7 +2,7 @@ require 'rubygems'
 
 Gem::Specification.new do |spec|
   spec.name       = 'win32-eventlog'
-  spec.version    = '0.5.2'
+  spec.version    = '0.5.3'
   spec.authors    = ['Daniel J. Berger', 'Park Heesob']
   spec.license    = 'Artistic 2.0'
   spec.email      = 'djberg96@gmail.com'
@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency('windows-pr', '>= 0.9.3')
   spec.add_development_dependency('ptools', '>= 1.1.6')
-  spec.add_development_dependency('test-unit', '>= 2.0.3')
+  spec.add_development_dependency('test-unit', '>= 2.1.1')
 
   spec.description = <<-EOF
     The win32-eventlog library provides an interface to the MS Windows event

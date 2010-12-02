@@ -8,11 +8,11 @@ require 'windows/synchronize'
 require 'windows/handle'
 
 class String
-   # Return the portion of the string up to the first NULL character.  This
-   # was added for both speed and convenience.
-   def nstrip
-      self[ /^[^\0]*/ ]
-   end
+  # Return the portion of the string up to the first NULL character.  This
+  # was added for both speed and convenience.
+  def nstrip
+    self[ /^[^\0]*/ ]
+  end
 end
 
 # The Win32 module serves as a namespace only.
@@ -38,7 +38,7 @@ module Win32
       extend Windows::Registry
       
       # The version of the win32-eventlog library
-      VERSION = '0.5.2'
+      VERSION = '0.5.3'
       
       # The log is read in chronological order, i.e. oldest to newest.
       FORWARDS_READ = EVENTLOG_FORWARDS_READ
