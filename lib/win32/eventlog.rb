@@ -1,12 +1,32 @@
 require 'socket'
 require 'win32ole'
 
+# The Win32 module serves only as a namespace
 module Win32
+  # The EventLog class encapsulates the Microsoft Windows Event Log
   class EventLog
+    # Error typically raised if any of the EventLog methods fail
     class Error < StandardError; end
 
-    attr_reader :source, :server, :file
+    # The version of the win32-eventlog library
+    VERSION = '0.6.0'
 
+    # The name of the event log source. This will typically be
+    # 'Application', 'System' or 'Security', but could also refer to
+    # a custom event log source.
+    #
+    attr_reader :source
+     
+    # The name of the server which the event log is reading from.
+    #
+    attr_reader :server
+     
+    # The name of the file used in the EventLog.open_backup method. This is
+    # set to nil if the file was not opened using the EventLog.open_backup
+    # method.
+    #
+    attr_reader :file
+    
     EventLogStruct = Struct.new(
       'EventLog',
       :Category,
@@ -27,12 +47,25 @@ module Win32
       :User
     )
 
+    # Opens a handle to the new EventLog +source+ on +server+, or the local
+    # machine if no host is specified. Typically, your source will be
+    # 'Application, 'Security' or 'System', although you can specify a
+    # custom log file as well.
+    #
+    # If a custom, registered log file name cannot be found, the event
+    # logging service opens the 'Application' log file. This is the
+    # behavior of the underlying Windows function, not my own doing.
+    # 
     def initialize(source = 'Application', server = nil, file = nil)
       server ||= Socket.gethostname
 
       @source = source
       @server = server
       @file   = file
+
+      raise TypeError unless @source.is_a?(String)
+      raise TypeError unless @server.is_a?(String) if @server
+      raise TypeError unless @file.is_a?(String) if @file
 
       connect_string = "winmgmts:{impersonationLevel=impersonate}"
       connect_string << "//#{server}/root/cimv2"
@@ -42,6 +75,22 @@ module Win32
       rescue WIN32OLERuntimeError => err
         raise Error, err
       end
+
+      if block_given?
+        begin
+          yield self
+        ensure
+          close
+        end
+      end
+    end
+
+    def close
+      @wmi.ole_free
+    end
+
+    class << self
+      alias :open :new
     end
 
     def read(conditions = nil)
