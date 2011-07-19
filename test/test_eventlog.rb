@@ -11,45 +11,61 @@ gem 'test-unit'
 require 'test/unit'
 require 'win32/eventlog'
 require 'socket'
-include Win32
 
-class TC_EventLog < Test::Unit::TestCase
-   def self.startup
-      @@hostname = Socket.gethostname      
-   end
+class TC_Win32_EventLog < Test::Unit::TestCase
+  def self.startup
+    @@host = Socket.gethostname      
+  end
    
-   def setup
-      @log      = EventLog.new('Application')
-      @logfile  = 'temp.evt'
-      @bakfile  = 'C:\event_log.bak'
-      @records  = []
-      @last     = nil
-   end
+  def setup
+    @log      = Win32::EventLog.new('Application')
+    @logfile  = 'temp.evt'
+    @bakfile  = 'C:\event_log.bak'
+    @records  = []
+    @last     = nil
+  end
  
-   def test_version
-      assert_equal('0.5.2', EventLog::VERSION)
-   end
-   
-   # Use the alias to validate it as well.
-   def test_constructor
-      assert_respond_to(EventLog, :open)
-      assert_nothing_raised{ EventLog.open }
-      assert_nothing_raised{ EventLog.open{ |log| } }
-      assert_nothing_raised{ EventLog.open('System') }
-      assert_nothing_raised{ EventLog.open('System', @@hostname) }
-   end
-   
-   def test_constructor_expected_errors
-      assert_raises(EventLog::Error){ EventLog.new('System', @@hostname, 'foo') }
-      assert_raises(TypeError){ EventLog.open(1) }
-      assert_raises(TypeError){ EventLog.open('System', 1) }
-   end
-   
-   def test_constructor_instance_variables
-      assert_nothing_raised{ @log = EventLog.new('Application', @@hostname) }
-      assert_equal(@@hostname, @log.server)
-      assert_equal('Application', @log.source)
-   end
+  test "version number is set to the expected value" do
+    assert_equal('0.6.0', Win32::EventLog::VERSION)
+  end
+
+  test "constructor with no arguments uses expected defaults" do
+    assert_nothing_raised{ @log = Win32::EventLog.new }
+    assert_equal(@@host, @log.server)
+    assert_equal('Application', @log.source)
+    assert_nil(@log.file)
+  end
+
+  test "constructor with source argument works as expected" do
+    assert_nothing_raised{ @log = Win32::EventLog.new('Security') }
+    assert_equal(@@host, @log.server)
+    assert_equal('Security', @log.source)
+    assert_nil(@log.file)
+  end
+
+  test "constructor with hostname works as expected" do
+    assert_nothing_raised{ @log = Win32::EventLog.new('Security', @@host) }
+    assert_equal(@@host, @log.server)
+    assert_equal('Security', @log.source)
+    assert_nil(@log.file)
+  end
+
+  test "constructor accepts a block" do
+    assert_nothing_raised{ Win32::EventLog.new{ } }
+    Win32::EventLog.new{ |log| assert_kind_of(Win32::EventLog, log) }
+  end
+
+  test "open is an alias for new" do
+    assert_respond_to(Win32::EventLog, :open)
+    assert_alias_method(Win32::EventLog, :open, :new)
+  end
+
+  test "the source, host and file arguments must be a string" do
+    assert_raises(TypeError){ Win32::EventLog.open(1) }
+    assert_raises(TypeError){ Win32::EventLog.open('Application', 1) }
+    assert_raises(TypeError){ Win32::EventLog.open('Application', @@host, 1) }
+  end
+=begin
    
    def test_open_backup
       assert_respond_to(EventLog, :open_backup)
@@ -221,16 +237,17 @@ class TC_EventLog < Test::Unit::TestCase
       assert_not_nil(EventLog::AUDIT_SUCCESS)
       assert_not_nil(EventLog::AUDIT_FAILURE)
    end
+=end
    
-   def teardown
-      @log.close rescue nil
-      File.delete(@bakfile) if File.exists?(@bakfile)
-      @logfile  = nil
-      @records  = nil
-      @last     = nil
-   end
+  def teardown
+    @log.close rescue nil
+    File.delete(@bakfile) if File.exists?(@bakfile)
+    @logfile  = nil
+    @records  = nil
+    @last     = nil
+  end
    
-   def self.shutdown
-      @@hostname = nil      
-   end
+  def self.shutdown
+    @@hostname = nil      
+  end
 end
