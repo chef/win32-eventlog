@@ -11,6 +11,11 @@ class String
   # Return the portion of the string up to the first NULL character.  This
   # was added for both speed and convenience.
   def nstrip
+    if RUBY_VERSION.to_f >= 1.9
+      unless self.ascii_only?
+        self.force_encoding('BINARY')
+      end
+    end
     self[ /^[^\0]*/ ]
   end
 end
@@ -21,11 +26,11 @@ module Win32
    # The EventLog class encapsulates an Event Log source and provides methods
    # for interacting with that source.
    class EventLog
-   
+
       # The EventLog::Error is raised in cases where interaction with the
       # event log should happen to fail for any reason.
       class Error < StandardError; end
-      
+
       include Windows::Error
       include Windows::EventLog
       include Windows::Security
@@ -36,10 +41,10 @@ module Win32
       include Windows::Handle
       extend Windows::Error
       extend Windows::Registry
-      
+
       # The version of the win32-eventlog library
       VERSION = '0.5.3'
-      
+
       # The log is read in chronological order, i.e. oldest to newest.
       FORWARDS_READ = EVENTLOG_FORWARDS_READ
 
@@ -55,7 +60,7 @@ module Win32
       SEQUENTIAL_READ = EVENTLOG_SEQUENTIAL_READ
 
       # Event types
-      
+
       # Information event, an event that describes the successful operation
       # of an application, driver or service.
       SUCCESS = EVENTLOG_SUCCESS
@@ -81,72 +86,72 @@ module Win32
       AUDIT_FAILURE = EVENTLOG_AUDIT_FAILURE
 
       private
-      
+
       # :stopdoc:
-      
+
       BUFFER_SIZE = 1024 * 64
       MAX_SIZE    = 256
       MAX_STRINGS = 16
       BASE_KEY    = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
-      
+
       # :startdoc:
 
       public
-      
+
       # The EventLogStruct encapsulates a single event log record.
       EventLogStruct = Struct.new('EventLogStruct', :record_number,
          :time_generated, :time_written, :event_id, :event_type, :category,
          :source, :computer, :user, :string_inserts, :description
       )
-      
+
       # The name of the event log source.  This will typically be
       # 'Application', 'System' or 'Security', but could also refer to
       # a custom event log source.
-      # 
+      #
       attr_reader :source
-      
+
       # The name of the server which the event log is reading from.
-      # 
+      #
       attr_reader :server
-      
+
       # The name of the file used in the EventLog.open_backup method.  This is
       # set to nil if the file was not opened using the EventLog.open_backup
       # method.
-      # 
+      #
       attr_reader :file
-      
+
       # Opens a handle to the new EventLog +source+ on +server+, or the local
       # machine if no host is specified.  Typically, your source will be
       # 'Application, 'Security' or 'System', although you can specify a
       # custom log file as well.
-      # 
+      #
       # If a custom, registered log file name cannot be found, the event
       # logging service opens the 'Application' log file.  This is the
       # behavior of the underlying Windows function, not my own doing.
-      # 
+      #
       def initialize(source = 'Application', server = nil, file = nil)
          @source = source || 'Application' # In case of explicit nil
          @server = server
          @file   = file
-         
+
          # Avoid potential segfaults from win32-api
          raise TypeError unless @source.is_a?(String)
          raise TypeError unless @server.is_a?(String) if @server
-         
+
          function = 'OpenEventLog()'
-         
+
          if @file.nil?
             @handle = OpenEventLog(@server, @source)
          else
             @handle = OpenBackupEventLog(@server, @file)
             function = 'OpenBackupEventLog()'
          end
-         
+
          if @handle == 0
             error = "#{function} failed: " + get_last_error
             raise Error, error
          end
-         
+
          # Ensure the handle is closed at the end of a block
          if block_given?
             begin
@@ -156,33 +161,33 @@ module Win32
             end
          end
       end
-      
+
       # Class method aliases
       class << self
          alias :open :new
       end
-      
+
       # Nearly identical to EventLog.open, except that the source is a backup
       # file and not an event source (and there is no default).
-      # 
+      #
       def self.open_backup(file, source = 'Application', server = nil, &block)
          @file   = file
          @source = source
          @server = server
-         
+
          # Avoid potential segfaults from win32-api
          raise TypeError unless @file.is_a?(String)
          raise TypeError unless @source.is_a?(String)
-         raise TypeError unless @server.is_a?(String) if @server        
+         raise TypeError unless @server.is_a?(String) if @server
 
          self.new(source, server, file, &block)
       end
-      
+
       # Adds an event source to the registry. Returns the disposition, which
       # is either REG_CREATED_NEW_KEY (1) or REG_OPENED_EXISTING_KEY (2).
       #
       # The following are valid keys:
-      #   
+      #
       # * source                 # Source name.  Set to "Application" by default
       # * key_name               # Name stored as the registry key
       # * category_count         # Number of supported (custom) categories
@@ -201,10 +206,10 @@ module Win32
       # The +event_message_file+ and +category_message_file+ are typically,
       # though not necessarily, the same file.  See the documentation on .mc files
       # for more details.
-      #     
+      #
       def self.add_event_source(args)
          raise TypeError unless args.is_a?(Hash)
-         
+
          valid_keys = %w/
             source
             key_name
@@ -222,8 +227,8 @@ module Win32
             'source'          => 'Application',
             'supported_types' => ERROR | WARN | INFO
          }
-         
-         # Validate the keys, and convert symbols and case to lowercase strings.     
+
+         # Validate the keys, and convert symbols and case to lowercase strings.
          args.each{ |key, val|
             key = key.to_s.downcase
             unless valid_keys.include?(key)
@@ -231,17 +236,17 @@ module Win32
             end
             hash[key] = val
          }
-         
+
          # The key_name must be specified
          unless hash['key_name']
             raise Error, 'no event_type specified'
          end
-         
-         hkey = [0].pack('L')        
+
+         hkey = [0].pack('L')
          key  = key_base + hash['source']
-         
+
          disposition = [0].pack('L')
-         
+
          rv = RegCreateKeyEx(
             HKEY_LOCAL_MACHINE,
             key,
@@ -252,16 +257,16 @@ module Win32
             nil,
             hkey,
             disposition
-         )          
-                 
+         )
+
          if rv != ERROR_SUCCESS
             error = 'RegCreateKeyEx() failed: ' + get_last_error
             raise Error, error
          end
-         
-         hkey = hkey.unpack('L')[0]        
+
+         hkey = hkey.unpack('L')[0]
          data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
-         
+
          begin
             rv = RegSetValueEx(
                hkey,
@@ -271,20 +276,20 @@ module Win32
                data,
                data.size
             )
-                        
+
             if rv != ERROR_SUCCESS
                error = 'RegSetValueEx() failed: ', get_last_error
                raise Error, error
             end
          ensure
-            RegCloseKey(hkey)         
+            RegCloseKey(hkey)
          end
-         
+
          hkey = [0].pack('L')
          key  = key_base << hash['source'] << "\\" << hash['key_name']
-         
+
          disposition = [0].pack('L')
-         
+
          begin
             rv = RegCreateKeyEx(
                HKEY_LOCAL_MACHINE,
@@ -297,16 +302,16 @@ module Win32
                hkey,
                disposition
             )
-           
+
             if rv != ERROR_SUCCESS
                raise Error, 'RegCreateKeyEx() failed: ' + get_last_error
             end
-            
+
             hkey = hkey.unpack('L')[0]
-            
+
             if hash['category_count']
                data = [hash['category_count']].pack('L')
-               
+
                rv = RegSetValueEx(
                   hkey,
                   'CategoryCount',
@@ -315,16 +320,16 @@ module Win32
                   data,
                   data.size
                )
-               
+
                if rv != ERROR_SUCCESS
                   error = 'RegSetValueEx() failed: ' + get_last_error
                   raise Error, error
                end
             end
-            
+
             if hash['category_message_file']
                data = File.expand_path(hash['category_message_file'])
-               
+
                rv = RegSetValueEx(
                   hkey,
                   'CategoryMessageFile',
@@ -333,16 +338,16 @@ module Win32
                   data,
                   data.size
                )
-               
+
                if rv != ERROR_SUCCESS
                   error = 'RegSetValueEx() failed: ' + get_last_error
                   raise Error, error
                end
             end
-            
+
             if hash['event_message_file']
                data = File.expand_path(hash['event_message_file'])
-               
+
                rv = RegSetValueEx(
                   hkey,
                   'EventMessageFile',
@@ -351,16 +356,16 @@ module Win32
                   data,
                   data.size
                )
-               
+
                if rv != ERROR_SUCCESS
                   error = 'RegSetValueEx() failed: ' + get_last_error
                   raise Error, error
                end
             end
-            
+
             if hash['parameter_message_file']
                data = File.expand_path(hash['parameter_message_file'])
-                                   
+
                rv = RegSetValueEx(
                   hkey,
                   'ParameterMessageFile',
@@ -369,13 +374,13 @@ module Win32
                   data,
                   data.size
                )
-                        
+
                if rv != ERROR_SUCCESS
                   error = 'RegSetValueEx() failed: ' + get_last_error
                   raise Error, error
                end
-            end         
-            
+            end
+
             data = [hash['supported_types']].pack('L')
 
             rv = RegSetValueEx(
@@ -386,7 +391,7 @@ module Win32
                data,
                data.size
             )
-               
+
             if rv != ERROR_SUCCESS
                error = 'RegSetValueEx() failed: ' + get_last_error
                raise Error, error
@@ -394,13 +399,13 @@ module Win32
          ensure
             RegCloseKey(hkey)
          end
-         
+
          disposition.unpack('L')[0]
       end
-      
+
       # Backs up the event log to +file+.  Note that you cannot backup to
       # a file that already exists or a Error will be raised.
-      # 
+      #
       def backup(file)
          raise TypeError unless file.is_a?(String)
          unless BackupEventLog(@handle, file)
@@ -409,99 +414,99 @@ module Win32
          end
          self
       end
-      
+
       # Clears the EventLog.  If +backup_file+ is provided, it backs up the
       # event log to that file first.
-      # 
+      #
       def clear(backup_file = nil)
          raise TypeError unless backup_file.is_a?(String) if backup_file
          backup_file = 0 unless backup_file
-          
+
          unless ClearEventLog(@handle, backup_file)
             error = 'ClearEventLog() failed: ' + get_last_error
             raise Error
          end
-         
+
          self
       end
-      
+
       # Closes the EventLog handle. The handle is automatically closed for you
       # if you use the block form of EventLog.new.
-      # 
+      #
       def close
          CloseEventLog(@handle)
       end
-      
+
       # Indicates whether or not the event log is full.
-      # 
+      #
       def full?
          buf    = [0].pack('L') # dwFull
          needed = [0].pack('L')
-         
+
          unless GetEventLogInformation(@handle, 0, buf, buf.size, needed)
             raise Error, 'GetEventLogInformation() failed: ' + get_last_error
          end
 
          buf[0,4].unpack('L')[0] != 0
       end
-      
+
       # Returns the absolute record number of the oldest record.  Note that
       # this is not guaranteed to be 1 because event log records can be
       # overwritten.
-      # 
+      #
       def oldest_record_number
          rec = [0].pack('L')
-         
+
          unless GetOldestEventLogRecord(@handle, rec)
             error = 'GetOldestEventLogRecord() failed: ' + get_last_error
             raise Error, error
          end
-         
+
          rec.unpack('L')[0]
       end
-      
+
       # Returns the total number of records for the given event log.
-      # 
+      #
       def total_records
          total = [0].pack('L')
-         
+
          unless GetNumberOfEventLogRecords(@handle, total)
             error = 'GetNumberOfEventLogRecords() failed: ' + get_last_error
             raise Error, error
          end
-         
+
          total.unpack('L')[0]
       end
-      
+
       # Yields an EventLogStruct every time a record is written to the event
       # log. Unlike EventLog#tail, this method breaks out of the block after
       # the event.
-      # 
+      #
       # Raises an Error if no block is provided.
-      # 
+      #
       def notify_change(&block)
          unless block_given?
             raise Error, 'block missing for notify_change()'
          end
-         
+
          # Reopen the handle because the NotifyChangeEventLog() function will
          # choke after five or six reads otherwise.
          @handle = OpenEventLog(@server, @source)
-         
+
          if @handle == 0
             error = 'OpenEventLog() failed: ' + get_last_error
             raise Error, error
          end
-         
+
          event = CreateEvent(0, 0, 0, 0)
-         
+
          unless NotifyChangeEventLog(@handle, event)
             error = 'NotifyChangeEventLog() failed: ' + get_last_error
             raise Error, error
          end
-         
+
          wait_result = WaitForSingleObject(event, INFINITE)
-         
+
          begin
             if wait_result == WAIT_FAILED
                error = 'WaitForSingleObject() failed: ' + get_last_error
@@ -513,33 +518,33 @@ module Win32
          ensure
             CloseHandle(event)
          end
-   
+
          self
       end
-      
+
       # Yields an EventLogStruct every time a record is written to the event
       # log, once every +frequency+ seconds. Unlike EventLog#notify_change,
       # this method does not break out of the block after the event.  The read
       # +frequency+ is set to 5 seconds by default.
-      # 
+      #
       # Raises an Error if no block is provided.
-      # 
+      #
       # The delay between reads is due to the nature of the Windows event log.
       # It is not really designed to be tailed in the manner of a Unix syslog,
-      # for example, in that not nearly as many events are typically recorded. 
+      # for example, in that not nearly as many events are typically recorded.
       # It's just not designed to be polled that heavily.
       #
       def tail(frequency = 5)
          unless block_given?
             raise Error, 'block missing for tail()'
          end
-         
-         old_total = total_records()       
+
+         old_total = total_records()
          flags     = FORWARDS_READ | SEEK_READ
          rec_num   = read_last_event.record_number
-         
-         while true          
-            new_total = total_records()    
+
+         while true
+            new_total = total_records()
             if new_total != old_total
                rec_num = oldest_record_number() if full?
                read(flags, rec_num).each{ |log| yield log }
@@ -549,20 +554,20 @@ module Win32
             sleep frequency
          end
       end
-      
+
       # Iterates over each record in the event log, yielding a EventLogStruct
       # for each record.  The offset value is only used when used in
       # conjunction with the EventLog::SEEK_READ flag.  Otherwise, it is
       # ignored.  If no flags are specified, then the default flags are:
-      #   
+      #
       # EventLog::SEQUENTIAL_READ | EventLog::FORWARDS_READ
       #
       # Note that, if you're performing a SEEK_READ, then the offset must
       # refer to a record number that actually exists.  The default of 0
       # may or may not work for your particular event log.
-      #   
+      #
       # The EventLogStruct struct contains the following members:
-      #   
+      #
       # * record_number  # Fixnum
       # * time_generated # Time
       # * time_written   # Time
@@ -574,16 +579,16 @@ module Win32
       # * user           # String or nil
       # * description    # String or nil
       # * string_inserts # An array of Strings or nil
-      #   
+      #
       # If no block is given the method returns an array of EventLogStruct's.
-      # 
+      #
       def read(flags = nil, offset = 0)
-         buf    = 0.chr * BUFFER_SIZE # 64k buffer      
+         buf    = 0.chr * BUFFER_SIZE # 64k buffer
          read   = [0].pack('L')
          needed = [0].pack('L')
          array  = []
          lkey   = HKEY_LOCAL_MACHINE
-         
+
          unless flags
             flags = FORWARDS_READ | SEQUENTIAL_READ
          end
@@ -595,27 +600,27 @@ module Win32
             end
             lkey = hkey.unpack('L').first
          end
-         
+
          while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
             GetLastError() == ERROR_INSUFFICIENT_BUFFER
-            
+
             if GetLastError() == ERROR_INSUFFICIENT_BUFFER
                buf = (0.chr * buf.size) + (0.chr * needed.unpack('L')[0])
                unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
                   raise Error, get_last_error
                end
             end
-                       
+
             dwread = read.unpack('L')[0]
-               
+
             while dwread > 0
                struct       = EventLogStruct.new
                event_source = buf[56..-1].nstrip
                computer     = buf[56 + event_source.length + 1..-1].nstrip
-               
+
                user = get_user(buf)
                strings, desc = get_description(buf, event_source, lkey)
-      
+
                struct.source         = event_source
                struct.computer       = computer
                struct.record_number  = buf[8,4].unpack('L')[0]
@@ -627,7 +632,7 @@ module Win32
                struct.category       = buf[28,2].unpack('S')[0]
                struct.string_inserts = strings
                struct.description 	 = desc
-               
+
                struct.freeze # This is read-only information
 
                if block_given?
@@ -635,30 +640,30 @@ module Win32
                else
                   array.push(struct)
                end
-               
+
                if flags & EVENTLOG_BACKWARDS_READ > 0
                   offset = buf[8,4].unpack('L')[0] - 1
                else
                   offset = buf[8,4].unpack('L')[0] + 1
                end
-               
+
                length = buf[0,4].unpack('L')[0] # Length
 
                dwread -= length
                buf = buf[length..-1]
             end
-            
+
             buf = 0.chr * BUFFER_SIZE
             read = [0].pack('L')
          end
-         
+
          block_given? ? nil : array
       end
-      
+
       # This class method is nearly identical to the EventLog#read instance
       # method, except that it takes a +source+ and +server+ as the first two
       # arguments.
-      # 
+      #
       def self.read(source='Application', server=nil, flags=nil, offset=0)
          self.new(source, server){ |log|
             if block_given?
@@ -670,28 +675,28 @@ module Win32
       end
 
       # Writes an event to the event log.  The following are valid keys:
-      #  
+      #
       # * source     # Event log source name. Defaults to "Application"
       # * event_id   # Event ID (defined in event message file)
       # * category   # Event category (defined in category message file)
       # * data       # String that is written to the log
       # * event_type # Type of event, e.g. EventLog::ERROR, etc.
-      #   
+      #
       # The +event_type+ keyword is the only mandatory keyword. The others are
       # optional. Although the +source+ defaults to "Application", I
       # recommend that you create an application specific event source and use
       # that instead. See the 'EventLog.add_event_source' method for more
       # details.
-      #  
+      #
       # The +event_id+ and +category+ values are defined in the message
       # file(s) that you created for your application. See the tutorial.txt
       # file for more details on how to create a message file.
-      #   
+      #
       # An ArgumentError is raised if you attempt to use an invalid key.
-      # 
+      #
       def report_event(args)
          raise TypeError unless args.is_a?(Hash)
-         
+
          valid_keys  = %w/source event_id category data event_type/
          num_strings = 0
 
@@ -702,8 +707,8 @@ module Win32
             'category' => 0,
             'data'     => 0
          }
-         
-         # Validate the keys, and convert symbols and case to lowercase strings.     
+
+         # Validate the keys, and convert symbols and case to lowercase strings.
          args.each{ |key, val|
             key = key.to_s.downcase
             unless valid_keys.include?(key)
@@ -711,19 +716,19 @@ module Win32
             end
             hash[key] = val
          }
-         
+
          # The event_type must be specified
          unless hash['event_type']
             raise Error, 'no event_type specified'
          end
-         
+
          handle = RegisterEventSource(@server, hash['source'])
-         
+
          if handle == 0
             error = 'RegisterEventSource() failed: ' + get_last_error
             raise Error, error
          end
-         
+
          if hash['data'].is_a?(String)
             data = hash['data'] << 0.chr
             data = [data].pack('p*')
@@ -732,7 +737,7 @@ module Win32
             data = 0
             num_strings = 0
          end
-         
+
          bool = ReportEvent(
             handle,
             hash['event_type'],
@@ -744,29 +749,29 @@ module Win32
             data,
             0
          )
-         
+
          unless bool
             error = 'ReportEvent() failed: ' + get_last_error
             raise Error, error
          end
-         
+
          self
       end
-      
+
       alias :write :report_event
-      
+
       private
-      
+
       # A private method that reads the last event log record.
-      # 
+      #
       def read_last_event(handle=@handle, source=@source, server=@server)
          buf    = 0.chr * BUFFER_SIZE # 64k buffer
          read   = [0].pack('L')
          needed = [0].pack('L')
          lkey   = HKEY_LOCAL_MACHINE
-    
+
          flags = EVENTLOG_BACKWARDS_READ | EVENTLOG_SEQUENTIAL_READ
-         
+
          unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
             error = GetLastError()
             if error == ERROR_INSUFFICIENT_BUFFER
@@ -786,13 +791,13 @@ module Win32
             end
             lkey = hkey.unpack('L').first
          end
-      
+
          event_source  = buf[56..-1].nstrip
          computer      = buf[56 + event_source.length + 1..-1].nstrip
          event_type    = get_event_type(buf[24,2].unpack('S')[0])
          user          = get_user(buf)
          strings, desc = get_description(buf, event_source, lkey)
-      
+
          struct = EventLogStruct.new
          struct.source         = event_source
          struct.computer       = computer
@@ -805,16 +810,16 @@ module Win32
          struct.category       = buf[28,2].unpack('S')[0]
          struct.string_inserts = strings
          struct.description 	 = desc
-         
+
          struct.freeze # This is read-only information
-         
+
          struct
       end
-      
+
       # Private method that retrieves the user name based on data in the
       # EVENTLOGRECORD buffer.
-      # 
-      def get_user(buf)      
+      #
+      def get_user(buf)
          return nil if buf[40,4].unpack('L')[0] <= 0 # UserSidLength
 
          name        = 0.chr * MAX_SIZE
@@ -822,9 +827,9 @@ module Win32
          domain      = 0.chr * MAX_SIZE
          domain_size = [domain.size].pack('L')
          snu         = 0.chr * 4
-         
+
          offset = buf[44,4].unpack('L')[0] # UserSidOffset
-      
+
          val = LookupAccountSid(
             @server,
             [buf].pack('P').unpack('L')[0] + offset,
@@ -834,14 +839,14 @@ module Win32
             domain_size,
             snu
          )
-         
+
          # Return nil if the lookup failed
          return val ? name.nstrip : nil
       end
-      
+
       # Private method that converts a numeric event type into a human
       # readable string.
-      # 
+      #
       def get_event_type(event)
          case event
             when EVENTLOG_ERROR_TYPE
@@ -858,11 +863,11 @@ module Win32
                nil
          end
       end
-      
+
       # Private method that gets the string inserts (Array) and the full
       # event description (String) based on data from the EVENTLOGRECORD
       # buffer.
-      #      
+      #
       def get_description(rec, event_source, lkey)
          str     = rec[rec[36,4].unpack('L')[0] .. -1]
          num     = rec[26,2].unpack('S')[0] # NumStrings
@@ -892,7 +897,7 @@ module Win32
                   hkey2 = [0].pack('L')
                   key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\"
                   key   << "WINEVT\\Publishers\\#{guid}"
-                 
+
                   if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
                      hkey2  = hkey2.unpack('L')[0]
                      value = 'ParameterMessageFile'
@@ -905,7 +910,7 @@ module Win32
                         ExpandEnvironmentStrings(file, exe, exe.size)
                         param_exe = exe.nstrip
                      end
-                  
+
                      value = 'MessageFileName'
                      file  = 0.chr * MAX_SIZE
                      size  = [file.length].pack('L')
@@ -916,7 +921,7 @@ module Win32
                         ExpandEnvironmentStrings(file, exe, exe.size)
                         message_exe = exe.nstrip
                      end
-                     
+
                      RegCloseKey(hkey2)
                   end
                else
@@ -940,9 +945,9 @@ module Win32
                      exe  = 0.chr * MAX_SIZE
                      ExpandEnvironmentStrings(file, exe, exe.size)
                      message_exe = exe.nstrip
-                   end
-                end
-                 
+                  end
+               end
+
                 RegCloseKey(hkey)
             elsif defined? EvtOpenPublisherMetadata # Vista or later
                pubMetadata = EvtOpenPublisherMetadata(
@@ -952,11 +957,11 @@ module Win32
                   1024, # Default LCID
                   0
                )
-              
+
                if pubMetadata > 0
                   buf2 = 0.chr * 8192
                   val  = 0.chr*4
-                 
+
                   EvtGetPublisherMetadataProperty(
                      pubMetadata,
                      2, # EvtPublisherMetadataParameterFilePath
@@ -965,7 +970,7 @@ module Win32
                      buf2,
                      val
                   )
-                 
+
                   file = wide_to_multi(buf2[16..-1])
                   exe  = 0.chr * MAX_SIZE
                   ExpandEnvironmentStrings(file, exe, exe.size)
@@ -973,7 +978,7 @@ module Win32
 
                   buf2 = 0.chr * 8192
                   val = 0.chr*4
-                  
+
                   EvtGetPublisherMetadataProperty(
                      pubMetadata,
                      3, # EvtPublisherMetadataMessageFilePath
@@ -982,7 +987,7 @@ module Win32
                      buf2,
                      val
                   )
-                  
+
                   file = wide_to_multi(buf2[16..-1])
                   exe  = 0.chr * MAX_SIZE
                   ExpandEnvironmentStrings(file, exe, exe.size)
@@ -1015,7 +1020,7 @@ module Win32
                               buf.size,
                               v
                            )
-                  
+
                            if res == 0
                               event_id = 0xB0000000 | event_id
                               res = FormatMessage(
@@ -1052,7 +1057,7 @@ module Win32
                   )
 
                   event_id = rec[20,4].unpack('L')[0]
-                  
+
                   if hmodule != 0
                      res = FormatMessage(
                         FORMAT_MESSAGE_FROM_HMODULE |
@@ -1064,10 +1069,10 @@ module Win32
                         buf.size,
                         nil
                      )
-                  
+
                      if res == 0
                         event_id = 0xB0000000 | event_id
-                  
+
                         res = FormatMessage(
                            FORMAT_MESSAGE_FROM_HMODULE |
                            FORMAT_MESSAGE_IGNORE_INSERTS,
@@ -1079,7 +1084,7 @@ module Win32
                            nil
                         )
                      end
-                  
+
                      FreeLibrary(hmodule)
                      break if buf.nstrip != "" # All messages read
                   end
@@ -1098,7 +1103,7 @@ module Win32
                      [x + 0.chr].pack('P').unpack('L')[0]
                   }.pack('L*')
                end
-                  
+
                message_exe.split(';').each{ |file|
                   hmodule = LoadLibraryEx(
                      file,
@@ -1119,10 +1124,10 @@ module Win32
                         buf.size,
                         va_list_ptr
                      )
-                  
+
                      if res == 0
                         event_id = 0xB0000000 | event_id
-                  
+
                         res = FormatMessage(
                            FORMAT_MESSAGE_FROM_HMODULE |
                            FORMAT_MESSAGE_ARGUMENT_ARRAY,
@@ -1147,6 +1152,6 @@ module Win32
         end
 
         [va_list0, buf.nstrip]
-     end      
+     end
    end
 end
