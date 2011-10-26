@@ -1,4 +1,6 @@
-== 0.5.3 - ???
+== 0.5.3 - 26-Oct-2011
+* Fixed the String#nstrip method for Ruby 1.9.x. Thanks go to Jason Bourne
+  for the spot and Ben Jansen for the patch.
 * Refactored the Rakefile and tests.
 
 == 0.5.2 - 21-Aug-2009
