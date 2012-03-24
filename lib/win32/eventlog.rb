@@ -424,7 +424,7 @@ module Win32
 
          unless ClearEventLog(@handle, backup_file)
             error = 'ClearEventLog() failed: ' + get_last_error
-            raise Error
+            raise Error, error
          end
 
          self
@@ -1001,9 +1001,9 @@ module Win32
                   va = v
 
                   v.scan(/%%(\d+)/).uniq.each{ |x|
-                     param_exe.split(';').each{ |file|
+                     param_exe.split(';').each{ |lfile|
                         hmodule  = LoadLibraryEx(
-                           file,
+                           lfile,
                            0,
                            DONT_RESOLVE_DLL_REFERENCES |
                            LOAD_LIBRARY_AS_DATAFILE
@@ -1049,9 +1049,9 @@ module Win32
                buf  = 0.chr * 8192 # Reset the buffer
 
                # Try to retrieve message *without* expanding the inserts yet
-               message_exe.split(';').each{ |file|
+               message_exe.split(';').each{ |lfile|
                   hmodule = LoadLibraryEx(
-                     file,
+                     lfile,
                      0,
                      DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
                   )
@@ -1104,9 +1104,9 @@ module Win32
                   }.pack('L*')
                end
 
-               message_exe.split(';').each{ |file|
+               message_exe.split(';').each{ |lfile|
                   hmodule = LoadLibraryEx(
-                     file,
+                     lfile,
                      0,
                      DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
                   )
@@ -1145,13 +1145,13 @@ module Win32
                   end
                }
             end
-        ensure
+         ensure
            if defined? Wow64RevertWow64FsRedirection
-              Wow64RevertWow64FsRedirection(old_wow_val.unpack('L')[0])
+             Wow64RevertWow64FsRedirection(old_wow_val.unpack('L')[0])
            end
-        end
+         end
 
-        [va_list0, buf.nstrip]
-     end
+         [va_list0, buf.nstrip]
+      end
    end
 end
