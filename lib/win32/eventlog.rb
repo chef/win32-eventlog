@@ -90,7 +90,7 @@ module Win32
       # :stopdoc:
 
       BUFFER_SIZE = 1024 * 64
-      MAX_SIZE    = 256
+      MAX_SIZE    = 512
       MAX_STRINGS = 16
       BASE_KEY    = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
 
