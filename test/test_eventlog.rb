@@ -130,6 +130,18 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     }
   end
   
+  test "two reads return the same descriptions" do
+    # The description difference occurs rarely on XP
+    # and consistently (one time through) on 7, for me.
+    5.times do
+      read_one = EventLog.read
+      read_two = EventLog.read
+      read_one.size.times do |i|
+        assert_equal(read_one[i], read_two[i])
+      end
+    end
+  end
+
   # I've added explicit breaks because an event log could be rather large.
   # 
   test "singleton read method does not require any arguments" do
