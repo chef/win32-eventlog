@@ -104,9 +104,13 @@ module Win32
         select * from Win32_NTEventLogFile where LogFileName = '#{@source}'
       }.strip
 
-      @wmi.ExecQuery(sql).each{ |logfile|
-        logfile.BackupEventLog(file)
-      }
+      begin
+        @wmi.ExecQuery(sql).each{ |logfile|
+          logfile.BackupEventLog(file)
+        }
+      rescue WIN32OLERuntimeError => err
+        raise Error, err
+      end
     end
 
     def read(conditions = nil)
