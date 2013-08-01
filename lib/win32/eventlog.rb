@@ -16,17 +16,17 @@ module Win32
     # a custom event log source.
     #
     attr_reader :source
-     
+
     # The name of the server which the event log is reading from.
     #
     attr_reader :server
-     
+
     # The name of the file used in the EventLog.open_backup method. This is
     # set to nil if the file was not opened using the EventLog.open_backup
     # method.
     #
     attr_reader :file
-    
+
     EventLogStruct = Struct.new(
       'EventLog',
       :Category,
@@ -55,7 +55,11 @@ module Win32
     # If a custom, registered log file name cannot be found, the event
     # logging service opens the 'Application' log file. This is the
     # behavior of the underlying Windows function, not my own doing.
-    # 
+    #
+    # Example:
+    #
+    # log = Win32::EventLog.new
+    #
     def initialize(source = 'Application', server = nil, file = nil)
       server ||= Socket.gethostname
 
@@ -67,7 +71,7 @@ module Win32
       raise TypeError unless @server.is_a?(String) if @server
       raise TypeError unless @file.is_a?(String) if @file
 
-      connect_string = "winmgmts:{impersonationLevel=impersonate}"
+      connect_string = "winmgmts:{impersonationLevel=impersonate,(Security)}"
       connect_string << "//#{server}/root/cimv2"
 
       begin
@@ -91,6 +95,18 @@ module Win32
 
     class << self
       alias :open :new
+    end
+
+    def backup(file)
+      raise TypeError unless file.is_a?(String)
+
+      sql = %Q{
+        select * from Win32_NTEventLogFile where LogFileName = '#{@source}'
+      }.strip
+
+      @wmi.ExecQuery(sql).each{ |logfile|
+        logfile.BackupEventLog(file)
+      }
     end
 
     def read(conditions = nil)
@@ -141,4 +157,10 @@ module Win32
       array
     end
   end
+end
+
+if $0 == __FILE__
+  include Win32
+  log = EventLog.new
+  log.backup("C:\\Users\\djberge\\test.evt")
 end
