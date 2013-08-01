@@ -172,7 +172,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "backup method fails is file already exists" do
     FileUtils.touch(@bakfile)
-    assert_raises(EventLog::Error){ @log.backup(@bakfile) }
+    assert_raises(Win32::EventLog::Error){ @log.backup(@bakfile) }
   end
 
   test "backup method requires a single argument" do
