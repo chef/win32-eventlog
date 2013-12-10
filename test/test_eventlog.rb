@@ -6,6 +6,8 @@
 # to complete.
 #############################################################################
 require 'win32/eventlog'
+require 'win32/security'
+require 'sys/admin'
 require 'socket'
 require 'test-unit'
 require 'fileutils'
@@ -13,12 +15,15 @@ require 'fileutils'
 class TC_Win32_EventLog < Test::Unit::TestCase
   def self.startup
     @@host = Socket.gethostname
+    @@elevated = Win32::Security.elevated_security?
   end
 
   def setup
     @log      = Win32::EventLog.new('Application')
     @logfile  = 'temp.evt'
-    @bakfile  = 'C:\event_log.bak'
+    @login    = Sys::Admin.get_login
+    @user     = Sys::Admin.get_user(@login, :localaccount => true)
+    @bakfile  = File.join(@user.dir, 'test_event_log.bak')
     @records  = []
     @last     = nil
   end
@@ -64,14 +69,22 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_raises(TypeError){ Win32::EventLog.open('Application', @@host, 1) }
   end
 
-  #test "the open_backup method works as expected" do
-    #assert_respond_to(EventLog, :open_backup)
-    #assert_nothing_raised{ EventLog.new('Application').backup(@bakfile) }
-    #assert_nothing_raised{ @log = EventLog.open_backup(@bakfile) }
-    #assert_kind_of(EventLog, @log)
-    #assert_nothing_raised{ @log.read{ break } }
-    #assert_nothing_raised{ @log.close }
-  #end
+  test "open_backup basic functionality" do
+    assert_respond_to(Win32::EventLog, :open_backup)
+  end
+
+  test "open_backup works as expected" do
+    Win32::EventLog.new('Application').backup(@bakfile)
+    assert_nothing_raised{ @log = Win32::EventLog.open_backup(@bakfile) }
+    assert_kind_of(Win32::EventLog, @log)
+    assert_nothing_raised{ @log.read{ break } }
+  end
+
+  test "the source, server and file arguments for open_backup must be a string" do
+    assert_raises(TypeError){ Win32::EventLog.open(1) }
+    assert_raises(TypeError){ Win32::EventLog.open('Application', 1) }
+    assert_raises(TypeError){ Win32::EventLog.open('Application', @@host, 1) }
+  end
 
 =begin
    # Ensure that an Array is returned in non-block form and that none of the
@@ -263,6 +276,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   def self.shutdown
-    @@hostname = nil
+    @@host = nil
+    @@elevated = nil
   end
 end

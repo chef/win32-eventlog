@@ -97,6 +97,10 @@ module Win32
       alias :open :new
     end
 
+    def self.open_backup(file, source = 'Application', server = nil, &block)
+      self.new(source, server, file, &block)
+    end
+
     def backup(file)
       raise TypeError unless file.is_a?(String)
 
