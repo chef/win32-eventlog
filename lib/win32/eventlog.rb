@@ -106,7 +106,12 @@ module Win32
 
       begin
         @wmi.ExecQuery(sql).each{ |logfile|
-          logfile.BackupEventLog(file)
+          val = logfile.BackupEventLog(file)
+
+          if val != 0
+            msg = SystemCallError.new('BackupEventLog', val).message
+            raise Error, msg
+          end
         }
       rescue WIN32OLERuntimeError => err
         raise Error, err
@@ -166,5 +171,6 @@ end
 if $0 == __FILE__
   include Win32
   log = EventLog.new
-  log.backup("C:\\Users\\djberge\\test.evt")
+  #log.backup("C:\\Users\\djberge\\test.evt")
+  #log.backup("test.evt")
 end
