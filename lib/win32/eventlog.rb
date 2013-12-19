@@ -155,6 +155,75 @@ module Win32
       self.new(source, server, file, &block)
     end
 
+    # Clears the event log. If the +backup_file+ argument is present, it will
+    # backup the event log to that file first.
+    #
+    def clear(backup_file = nil)
+      sql = %Q{
+        select * from Win32_NTEventLogFile where LogFileName = '#{@source}'
+      }.strip
+
+      @wmi.ExecQuery(sql).each{ |logfile|
+      }
+    end
+
+    def file_info
+      struct = nil
+
+      sql = %Q{
+        select * from Win32_NTEventLogFile where LogFileName = '#{@source}'
+      }.strip
+
+      @wmi.ExecQuery(sql).each{ |logfile|
+        struct = EventLogFileStruct.new(
+          logfile.AccessMask,
+          logfile.Archive,
+          logfile.Caption,
+          logfile.Compressed,
+          logfile.CompressionMethod,
+          logfile.CreationClassName,
+          logfile.CreationDate,
+          logfile.CSCreationClassName,
+          logfile.CSName,
+          logfile.Description,
+          logfile.Drive,
+          logfile.EightDotThreeFileName,
+          logfile.Encrypted,
+          logfile.EncryptionMethod,
+          logfile.Extension,
+          logfile.FileName,
+          logfile.FileSize,
+          logfile.FileType,
+          logfile.FSCreationClassName,
+          logfile.FSName,
+          logfile.Hidden,
+          logfile.InstallDate,
+          logfile.InUseCount,
+          logfile.LastAccessed,
+          logfile.LastModified,
+          logfile.LogfileName,
+          logfile.Manufacturer,
+          logfile.MaxFileSize,
+          logfile.Name,
+          logfile.NumberOfRecords,
+          logfile.OverwriteOutDated,
+          logfile.OverWritePolicy,
+          logfile.Path,
+          logfile.Readable,
+          logfile.Sources,
+          logfile.Status,
+          logfile.System,
+          logfile.Version,
+          logfile.Writeable
+        )
+        break
+      }
+
+      struct
+    end
+
+    # Returns the total number of records for the event log.
+    #
     def total_records
       val = 0
 
@@ -242,10 +311,12 @@ module Win32
 end
 
 if $0 == __FILE__
+  require 'pp'
   include Win32
   log = EventLog.new
   #log.backup("C:\\Users\\djberge\\test.evt")
-  p log.total_records
+  #p log.total_records
+  pp log.file_info
   #log.backup("test.evt")
   #EventLog.read('Application') do |log|
   #  p log.Message
