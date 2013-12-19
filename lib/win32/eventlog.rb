@@ -47,6 +47,49 @@ module Win32
       :User
     )
 
+    EventLogFileStruct = Struct.new(
+      'EventLogFile',
+      :AccessMask,
+      :Archive,
+      :Caption,
+      :Compressed,
+      :CompressionMethod,
+      :CreationClassName,
+      :CreationDate,
+      :CSCreationClassName,
+      :CSName,
+      :Description,
+      :Drive,
+      :EightDotThreeFileName,
+      :Encrypted,
+      :EncryptionMethod,
+      :Extension,
+      :FileName,
+      :FileSize,
+      :FileType,
+      :FSCreationClassName,
+      :FSName,
+      :Hidden,
+      :InstallDate,
+      :InUseCount,
+      :LastAccessed,
+      :LastModified,
+      :LogfileName,
+      :Manufacturer,
+      :MaxFileSize,
+      :Name,
+      :NumberOfRecords,
+      :OverwriteOutDated,
+      :OverWritePolicy,
+      :Path,
+      :Readable,
+      :Sources,
+      :Status,
+      :System,
+      :Version,
+      :Writeable
+    )
+
     # Opens a handle to the new EventLog +source+ on +server+, or the local
     # machine if no host is specified. Typically, your source will be
     # 'Application, 'Security' or 'System', although you can specify a
@@ -95,10 +138,36 @@ module Win32
 
     class << self
       alias :open :new
+
+      # Same as EventLog.new(args).read(conditions).
+      #
+      def read(source = 'Application', server = nil, file = nil, conditions = nil, &block)
+        begin
+          log = self.new(source, server, file)
+          log.read(conditions, &block)
+        ensure
+          log.close
+        end
+      end
     end
 
     def self.open_backup(file, source = 'Application', server = nil, &block)
       self.new(source, server, file, &block)
+    end
+
+    def total_records
+      val = 0
+
+      sql = %Q{
+        select * from Win32_NTEventLogFile where LogFileName = '#{@source}'
+      }.strip
+
+      @wmi.ExecQuery(sql).each{ |logfile|
+        val = logfile.NumberOfRecords
+        break
+      }
+
+      val
     end
 
     def backup(file)
@@ -176,5 +245,9 @@ if $0 == __FILE__
   include Win32
   log = EventLog.new
   #log.backup("C:\\Users\\djberge\\test.evt")
+  p log.total_records
   #log.backup("test.evt")
+  #EventLog.read('Application') do |log|
+  #  p log.Message
+  #end
 end
