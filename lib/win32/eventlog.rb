@@ -1,5 +1,6 @@
 require 'socket'
 require 'win32ole'
+require 'time'
 
 # The Win32 module serves only as a namespace
 module Win32
@@ -182,7 +183,7 @@ module Win32
           logfile.Compressed,
           logfile.CompressionMethod,
           logfile.CreationClassName,
-          logfile.CreationDate,
+          Time.parse(logfile.CreationDate),
           logfile.CSCreationClassName,
           logfile.CSName,
           logfile.Description,
@@ -197,10 +198,10 @@ module Win32
           logfile.FSCreationClassName,
           logfile.FSName,
           logfile.Hidden,
-          logfile.InstallDate,
+          Time.parse(logfile.InstallDate),
           logfile.InUseCount,
-          logfile.LastAccessed,
-          logfile.LastModified,
+          Time.parse(logfile.LastAccessed),
+          Time.parse(logfile.LastModified),
           logfile.LogfileName,
           logfile.Manufacturer,
           logfile.MaxFileSize,
