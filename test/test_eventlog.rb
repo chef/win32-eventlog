@@ -86,26 +86,25 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_raises(TypeError){ Win32::EventLog.open('Application', @@host, 1) }
   end
 
+  test "singleton read method basic functionality" do
+    assert_nothing_raised{ @array = Win32::EventLog.read }
+    assert_kind_of(Array, @array)
+  end
+
+  # The test for descriptions was added as a result of ruby-talk:116528.
+  # Thanks go to Joey Gibson for the spot. The test for unique record
+  # numbers was added to ensure no dups.
+  #
+  test "singleton read method works as expected" do
+    record_numbers = []
+    Win32::EventLog.read.each{ |log|
+      assert_not_nil(log.Message)
+      assert_false(record_numbers.include?(log.RecordNumber))
+      record_numbers << log.RecordNumber
+    }
+  end
+
 =begin
-   # Ensure that an Array is returned in non-block form and that none of the
-   # descriptions are nil.
-   #
-   # The test for descriptions was added as a result of ruby-talk:116528.
-   # Thanks go to Joey Gibson for the spot.  The test for unique record
-   # numbers was added to ensure no dups.
-   #
-   def test_class_read_verification
-      assert_nothing_raised{ @array = EventLog.read }
-      assert_kind_of(Array, @array)
-
-      record_numbers = []
-      @array.each{ |log|
-         assert_not_nil(log.description)
-         assert_equal(false, record_numbers.include?(log.record_number))
-         record_numbers << log.record_number
-      }
-   end
-
    # I've added explicit breaks because an event log could be rather large.
    #
    def test_class_read_basic
@@ -219,11 +218,19 @@ class TC_Win32_EventLog < Test::Unit::TestCase
       assert_respond_to(@log, :oldest_record_number)
       assert_kind_of(Fixnum, @log.oldest_record_number)
    end
+=end
 
-   def test_total_records
-      assert_respond_to(@log, :total_records)
-      assert_kind_of(Fixnum, @log.total_records)
-   end
+  test "total_records basic functionality" do
+    assert_respond_to(@log, :total_records)
+    assert_kind_of(Fixnum, @log.total_records)
+  end
+
+  test "total_records returns sane result" do
+    assert_true(@log.total_records > 0)
+    assert_true(@log.total_records < 100000000000)
+  end
+
+=begin
 
    # We can't test that this method actually executes properly since it goes
    # into an endless loop.
