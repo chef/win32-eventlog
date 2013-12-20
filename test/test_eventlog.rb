@@ -213,12 +213,16 @@ class TC_Win32_EventLog < Test::Unit::TestCase
       assert_respond_to(@log, :close)
       assert_nothing_raised{ @log.close }
    end
-
-   def test_oldest_record_number
-      assert_respond_to(@log, :oldest_record_number)
-      assert_kind_of(Fixnum, @log.oldest_record_number)
-   end
 =end
+
+  test "oldest_record_number basic functionality" do
+    assert_respond_to(@log, :oldest_record_number)
+    assert_kind_of(Fixnum, @log.oldest_record_number)
+  end
+
+  test "oldest_record_number returns a sane value" do
+    assert_true(@log.oldest_record_number < 5000)
+  end
 
   test "total_records basic functionality" do
     assert_respond_to(@log, :total_records)

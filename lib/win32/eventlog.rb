@@ -261,6 +261,35 @@ module Win32
       end
     end
 
+    # Returns the oldest record number in the given event log.
+    #--
+    # TODO: Is there a better way than iterating over the entire log? I
+    # don't see a min or max method for WQL.
+    #
+    def oldest_record_number
+      num = nil
+
+      sql = %Q{
+        select * from Win32_NTLogEvent
+        where Logfile = '#{@source}'
+        and RecordNumber < 2000
+      }
+
+      oldest_time = Time.now
+
+      @wmi.ExecQuery(sql).each{ |log|
+        time = Time.parse(log.TimeGenerated)
+        if time <= oldest_time
+          oldest_time = time
+          num = log.RecordNumber
+        else
+          next
+        end
+      }
+
+      num
+    end
+
     def read(conditions = nil)
       array = block_given? ? nil : []
 
@@ -316,10 +345,11 @@ if $0 == __FILE__
   include Win32
   log = EventLog.new
   #log.backup("C:\\Users\\djberge\\test.evt")
+  p log.oldest_record_number
   #p log.total_records
-  pp log.file_info
+  #pp log.file_info
   #log.backup("test.evt")
   #EventLog.read('Application') do |log|
-  #  p log.Message
+  #  p log.RecordNumber
   #end
 end
