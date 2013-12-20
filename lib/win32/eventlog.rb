@@ -272,7 +272,7 @@ module Win32
       sql = %Q{
         select * from Win32_NTLogEvent
         where Logfile = '#{@source}'
-        and RecordNumber < 2000
+        and RecordNumber < 5000
       }
 
       oldest_time = Time.now
