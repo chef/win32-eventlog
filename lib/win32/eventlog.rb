@@ -430,82 +430,80 @@ module Win32
       total.read_ulong
     end
 
-      # Yields an EventLogStruct every time a record is written to the event
-      # log. Unlike EventLog#tail, this method breaks out of the block after
-      # the event.
-      #
-      # Raises an Error if no block is provided.
-      #
-      def notify_change(&block)
-         unless block_given?
-            raise Error, 'block missing for notify_change()'
-         end
-
-         # Reopen the handle because the NotifyChangeEventLog() function will
-         # choke after five or six reads otherwise.
-         @handle = OpenEventLog(@server, @source)
-
-         if @handle == 0
-            error = 'OpenEventLog() failed: ' + get_last_error
-            raise Error, error
-         end
-
-         event = CreateEvent(0, 0, 0, 0)
-
-         unless NotifyChangeEventLog(@handle, event)
-            error = 'NotifyChangeEventLog() failed: ' + get_last_error
-            raise Error, error
-         end
-
-         wait_result = WaitForSingleObject(event, INFINITE)
-
-         begin
-            if wait_result == WAIT_FAILED
-               error = 'WaitForSingleObject() failed: ' + get_last_error
-               raise Error, error
-            else
-               last = read_last_event
-               block.call(last)
-            end
-         ensure
-            CloseHandle(event)
-         end
-
-         self
+    # Yields an EventLogStruct every time a record is written to the event
+    # log. Unlike EventLog#tail, this method breaks out of the block after
+    # the event.
+    #
+    # Raises an Error if no block is provided.
+    #
+    def notify_change(&block)
+      unless block_given?
+        raise Error, 'block missing for notify_change()'
       end
 
-      # Yields an EventLogStruct every time a record is written to the event
-      # log, once every +frequency+ seconds. Unlike EventLog#notify_change,
-      # this method does not break out of the block after the event.  The read
-      # +frequency+ is set to 5 seconds by default.
-      #
-      # Raises an Error if no block is provided.
-      #
-      # The delay between reads is due to the nature of the Windows event log.
-      # It is not really designed to be tailed in the manner of a Unix syslog,
-      # for example, in that not nearly as many events are typically recorded.
-      # It's just not designed to be polled that heavily.
-      #
-      def tail(frequency = 5)
-         unless block_given?
-            raise Error, 'block missing for tail()'
-         end
+      # Reopen the handle because the NotifyChangeEventLog() function will
+      # choke after five or six reads otherwise.
+      @handle = OpenEventLog(@server, @source)
 
-         old_total = total_records()
-         flags     = FORWARDS_READ | SEEK_READ
-         rec_num   = read_last_event.record_number
-
-         while true
-            new_total = total_records()
-            if new_total != old_total
-               rec_num = oldest_record_number() if full?
-               read(flags, rec_num).each{ |log| yield log }
-               old_total = new_total
-               rec_num   = read_last_event.record_number + 1
-            end
-            sleep frequency
-         end
+      if @handle == 0
+        error = 'OpenEventLog() failed: ' + get_last_error
+        raise Error, error
       end
+
+      event = CreateEvent(0, 0, 0, 0)
+
+      unless NotifyChangeEventLog(@handle, event)
+        raise SystemCallError.new('NotifyChangeEventLog', FFI.errno)
+      end
+
+      wait_result = WaitForSingleObject(event, INFINITE)
+
+      begin
+        if wait_result == WAIT_FAILED
+          raise SystemCallError.new('WaitForSingleObject', FFI.errno)
+        else
+          last = read_last_event
+          block.call(last)
+        end
+      ensure
+        CloseHandle(event)
+      end
+
+      self
+    end
+
+    # Yields an EventLogStruct every time a record is written to the event
+    # log, once every +frequency+ seconds. Unlike EventLog#notify_change,
+    # this method does not break out of the block after the event.  The read
+    # +frequency+ is set to 5 seconds by default.
+    #
+    # Raises an Error if no block is provided.
+    #
+    # The delay between reads is due to the nature of the Windows event log.
+    # It is not really designed to be tailed in the manner of a Unix syslog,
+    # for example, in that not nearly as many events are typically recorded.
+    # It's just not designed to be polled that heavily.
+    #
+    def tail(frequency = 5)
+      unless block_given?
+        raise Error, 'block missing for tail()'
+      end
+
+      old_total = total_records()
+      flags     = FORWARDS_READ | SEEK_READ
+      rec_num   = read_last_event.record_number
+
+      while true
+        new_total = total_records()
+        if new_total != old_total
+          rec_num = oldest_record_number() if full?
+          read(flags, rec_num).each{ |log| yield log }
+          old_total = new_total
+          rec_num   = read_last_event.record_number + 1
+        end
+        sleep frequency
+      end
+    end
 
       # Iterates over each record in the event log, yielding a EventLogStruct
       # for each record.  The offset value is only used when used in
