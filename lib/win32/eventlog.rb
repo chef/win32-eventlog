@@ -1,419 +1,374 @@
-require 'windows/error'
-require 'windows/eventlog'
-require 'windows/security'
-require 'windows/registry'
-require 'windows/system_info'
-require 'windows/library'
-require 'windows/synchronize'
-require 'windows/handle'
-
-class String
-  # Return the portion of the string up to the first NULL character.  This
-  # was added for both speed and convenience.
-  def nstrip
-    if RUBY_VERSION.to_f >= 1.9
-      unless self.ascii_only?
-        self.force_encoding('BINARY')
-      end
-    end
-    self[ /^[^\0]*/ ]
-  end
-end
+require File.join(File.dirname(__FILE__), 'windows', 'constants')
+require File.join(File.dirname(__FILE__), 'windows', 'structs')
+require File.join(File.dirname(__FILE__), 'windows', 'functions')
 
 # The Win32 module serves as a namespace only.
 module Win32
 
-   # The EventLog class encapsulates an Event Log source and provides methods
-   # for interacting with that source.
-   class EventLog
+  # The EventLog class encapsulates an Event Log source and provides methods
+  # for interacting with that source.
+  class EventLog
+    include Windows::Constants
+    include Windows::Structs
+    include Windows::Functions
+    extend Windows::Functions
 
-      # The EventLog::Error is raised in cases where interaction with the
-      # event log should happen to fail for any reason.
-      class Error < StandardError; end
+    # The EventLog::Error is raised in cases where interaction with the
+    # event log should happen to fail for any reason.
+    class Error < StandardError; end
 
-      include Windows::Error
-      include Windows::EventLog
-      include Windows::Security
-      include Windows::Registry
-      include Windows::SystemInfo
-      include Windows::Library
-      include Windows::Synchronize
-      include Windows::Handle
-      extend Windows::Error
-      extend Windows::Registry
+    # The version of the win32-eventlog library
+    VERSION = '0.6.0'
 
-      # The version of the win32-eventlog library
-      VERSION = '0.5.3'
+    # The log is read in chronological order, i.e. oldest to newest.
+    FORWARDS_READ = EVENTLOG_FORWARDS_READ
 
-      # The log is read in chronological order, i.e. oldest to newest.
-      FORWARDS_READ = EVENTLOG_FORWARDS_READ
+    # The log is read in reverse chronological order, i.e. newest to oldest.
+    BACKWARDS_READ = EVENTLOG_BACKWARDS_READ
 
-      # The log is read in reverse chronological order, i.e. newest to oldest.
-      BACKWARDS_READ = EVENTLOG_BACKWARDS_READ
+    # Begin reading from a specific record.
+    SEEK_READ = EVENTLOG_SEEK_READ
 
-      # Begin reading from a specific record.
-      SEEK_READ = EVENTLOG_SEEK_READ
+    # Read the records sequentially. If this is the first read operation, the
+    # EVENTLOG_FORWARDS_READ or EVENTLOG_BACKWARDS_READ flags determines
+    # which record is read first.
+    SEQUENTIAL_READ = EVENTLOG_SEQUENTIAL_READ
 
-      # Read the records sequentially. If this is the first read operation, the
-      # EVENTLOG_FORWARDS_READ or EVENTLOG_BACKWARDS_READ flags determines
-      # which record is read first.
-      SEQUENTIAL_READ = EVENTLOG_SEQUENTIAL_READ
+    # Event types
 
-      # Event types
+    # Information event, an event that describes the successful operation
+    # of an application, driver or service.
+    SUCCESS = EVENTLOG_SUCCESS
 
-      # Information event, an event that describes the successful operation
-      # of an application, driver or service.
-      SUCCESS = EVENTLOG_SUCCESS
+    # Error event, an event that indicates a significant problem such as
+    # loss of data or functionality.
+    ERROR = EVENTLOG_ERROR_TYPE
 
-      # Error event, an event that indicates a significant problem such as
-      # loss of data or functionality.
-      ERROR = EVENTLOG_ERROR_TYPE
+    # Warning event, an event that is not necessarily significant but may
+    # indicate a possible future problem.
+    WARN = EVENTLOG_WARNING_TYPE
 
-      # Warning event, an event that is not necessarily significant but may
-      # indicate a possible future problem.
-      WARN = EVENTLOG_WARNING_TYPE
+    # Information event, an event that describes the successful operation
+    # of an application, driver or service.
+    INFO = EVENTLOG_INFORMATION_TYPE
 
-      # Information event, an event that describes the successful operation
-      # of an application, driver or service.
-      INFO = EVENTLOG_INFORMATION_TYPE
+    # Success audit event, an event that records an audited security attempt
+    # that is successful.
+    AUDIT_SUCCESS = EVENTLOG_AUDIT_SUCCESS
 
-      # Success audit event, an event that records an audited security attempt
-      # that is successful.
-      AUDIT_SUCCESS = EVENTLOG_AUDIT_SUCCESS
+    # Failure audit event, an event that records an audited security attempt
+    # that fails.
+    AUDIT_FAILURE = EVENTLOG_AUDIT_FAILURE
 
-      # Failure audit event, an event that records an audited security attempt
-      # that fails.
-      AUDIT_FAILURE = EVENTLOG_AUDIT_FAILURE
+    # The EventLogStruct encapsulates a single event log record.
+    EventLogStruct = Struct.new('EventLogStruct', :record_number,
+      :time_generated, :time_written, :event_id, :event_type, :category,
+      :source, :computer, :user, :string_inserts, :description
+    )
 
-      private
+    # The name of the event log source.  This will typically be
+    # 'Application', 'System' or 'Security', but could also refer to
+    # a custom event log source.
+    #
+    attr_reader :source
 
-      # :stopdoc:
+    # The name of the server which the event log is reading from.
+    #
+    attr_reader :server
 
-      BUFFER_SIZE = 1024 * 64
-      MAX_SIZE    = 256
-      MAX_STRINGS = 16
-      BASE_KEY    = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
+    # The name of the file used in the EventLog.open_backup method.  This is
+    # set to nil if the file was not opened using the EventLog.open_backup
+    # method.
+    #
+    attr_reader :file
 
-      # :startdoc:
+    # Opens a handle to the new EventLog +source+ on +server+, or the local
+    # machine if no host is specified.  Typically, your source will be
+    # 'Application, 'Security' or 'System', although you can specify a
+    # custom log file as well.
+    #
+    # If a custom, registered log file name cannot be found, the event
+    # logging service opens the 'Application' log file.  This is the
+    # behavior of the underlying Windows function, not my own doing.
+    #
+    def initialize(source = 'Application', server = nil, file = nil)
+      @source = source || 'Application' # In case of explicit nil
+      @server = server
+      @file   = file
 
-      public
+      # Avoid potential segfaults from win32-api
+      raise TypeError unless @source.is_a?(String)
+      raise TypeError unless @server.is_a?(String) if @server
 
-      # The EventLogStruct encapsulates a single event log record.
-      EventLogStruct = Struct.new('EventLogStruct', :record_number,
-         :time_generated, :time_written, :event_id, :event_type, :category,
-         :source, :computer, :user, :string_inserts, :description
+      server = server.wincode
+      source = source.wincode
+      file   = file.wincode
+
+      if file.nil?
+        function = 'OpenEventLog()'
+        @handle = OpenEventLog(server, source)
+      else
+        function = 'OpenBackupEventLog()'
+        @handle = OpenBackupEventLog(server, file)
+      end
+
+      if @handle == 0
+        raise SystemCallError.new(function, FFI.errno)
+      end
+
+      # Ensure the handle is closed at the end of a block
+      if block_given?
+        begin
+          yield self
+        ensure
+          close
+        end
+      end
+    end
+
+    # Class method aliases
+    class << self
+      alias :open :new
+    end
+
+    # Nearly identical to EventLog.open, except that the source is a backup
+    # file and not an event source (and there is no default).
+    #
+    def self.open_backup(file, source = 'Application', server = nil, &block)
+      @file   = file
+      @source = source
+      @server = server
+
+      # Avoid potential segfaults from win32-api
+      raise TypeError unless @file.is_a?(String)
+      raise TypeError unless @source.is_a?(String)
+      raise TypeError unless @server.is_a?(String) if @server
+
+      self.new(source, server, file, &block)
+    end
+
+    # Adds an event source to the registry. Returns the disposition, which
+    # is either REG_CREATED_NEW_KEY (1) or REG_OPENED_EXISTING_KEY (2).
+    #
+    # The following are valid keys:
+    #
+    # * source                 # Source name.  Set to "Application" by default
+    # * key_name               # Name stored as the registry key
+    # * category_count         # Number of supported (custom) categories
+    # * event_message_file     # File (dll) that defines events
+    # * category_message_file  # File (dll) that defines categories
+    # * parameter_message_file # File (dll) that contains values for
+    #   variables in the event description.
+    # * supported_types        # See the 'event types' constants
+    #
+    # Of these keys, only +key_name+ is mandatory.  An ArgumentError is
+    # raised if you attempt to use an invalid key.  If +supported_types+
+    # is not specified then the following value is used:
+    #
+    # EventLog::ERROR | EventLog::WARN | EventLog::INFO
+    #
+    # The +event_message_file+ and +category_message_file+ are typically,
+    # though not necessarily, the same file.  See the documentation on .mc files
+    # for more details.
+    #
+    def self.add_event_source(args)
+      raise TypeError unless args.is_a?(Hash)
+
+      valid_keys = %w[
+        source
+        key_name
+        category_count
+        event_message_file
+        category_message_file
+        parameter_message_file
+        supported_types
+      ]
+
+      key_base = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
+
+      # Default values
+      hash = {
+        'source'          => 'Application',
+        'supported_types' => ERROR | WARN | INFO
+      }
+
+      # Validate the keys, and convert symbols and case to lowercase strings.
+      args.each{ |key, val|
+        key = key.to_s.downcase
+        unless valid_keys.include?(key)
+          raise ArgumentError, "invalid key '#{key}'"
+        end
+        hash[key] = val
+      }
+
+      # The key_name must be specified
+      unless hash['key_name']
+        raise ArgumentError, 'no event_type specified'
+      end
+
+      hkey = FFI::Pointer.new(:ulong)
+      disposition = FFI::Pointer.new(:ulong)
+
+      key  = key_base + hash['source']
+
+      rv = RegCreateKeyEx(
+        HKEY_LOCAL_MACHINE,
+        key,
+        0,
+        nil,
+        REG_OPTION_NON_VOLATILE,
+        KEY_WRITE,
+        nil,
+        hkey,
+        disposition
       )
 
-      # The name of the event log source.  This will typically be
-      # 'Application', 'System' or 'Security', but could also refer to
-      # a custom event log source.
-      #
-      attr_reader :source
-
-      # The name of the server which the event log is reading from.
-      #
-      attr_reader :server
-
-      # The name of the file used in the EventLog.open_backup method.  This is
-      # set to nil if the file was not opened using the EventLog.open_backup
-      # method.
-      #
-      attr_reader :file
-
-      # Opens a handle to the new EventLog +source+ on +server+, or the local
-      # machine if no host is specified.  Typically, your source will be
-      # 'Application, 'Security' or 'System', although you can specify a
-      # custom log file as well.
-      #
-      # If a custom, registered log file name cannot be found, the event
-      # logging service opens the 'Application' log file.  This is the
-      # behavior of the underlying Windows function, not my own doing.
-      #
-      def initialize(source = 'Application', server = nil, file = nil)
-         @source = source || 'Application' # In case of explicit nil
-         @server = server
-         @file   = file
-
-         # Avoid potential segfaults from win32-api
-         raise TypeError unless @source.is_a?(String)
-         raise TypeError unless @server.is_a?(String) if @server
-
-         function = 'OpenEventLog()'
-
-         if @file.nil?
-            @handle = OpenEventLog(@server, @source)
-         else
-            @handle = OpenBackupEventLog(@server, @file)
-            function = 'OpenBackupEventLog()'
-         end
-
-         if @handle == 0
-            error = "#{function} failed: " + get_last_error
-            raise Error, error
-         end
-
-         # Ensure the handle is closed at the end of a block
-         if block_given?
-            begin
-               yield self
-            ensure
-               close
-            end
-         end
+      if rv != ERROR_SUCCESS
+        raise SystemCallError.new('RegCreateKeyEx', FFI.errno)
       end
 
-      # Class method aliases
-      class << self
-         alias :open :new
+      hkey = hkey.read_ulong
+      data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
+
+      begin
+        rv = RegSetValueEx(
+          hkey,
+          'File',
+          0,
+          REG_EXPAND_SZ,
+          data,
+          data.size
+        )
+
+        if rv != ERROR_SUCCESS
+          raise SystemCallError.new('RegSetValueEx', FFI.errno)
+        end
+      ensure
+        RegCloseKey(hkey)
       end
 
-      # Nearly identical to EventLog.open, except that the source is a backup
-      # file and not an event source (and there is no default).
-      #
-      def self.open_backup(file, source = 'Application', server = nil, &block)
-         @file   = file
-         @source = source
-         @server = server
+      hkey = FFI::Pointer.new(:ulong)
+      disposition = FFI::Pointer.new(:ulong)
 
-         # Avoid potential segfaults from win32-api
-         raise TypeError unless @file.is_a?(String)
-         raise TypeError unless @source.is_a?(String)
-         raise TypeError unless @server.is_a?(String) if @server
+      key  = key_base << hash['source'] << "\\" << hash['key_name']
 
-         self.new(source, server, file, &block)
-      end
+      begin
+        rv = RegCreateKeyEx(
+          HKEY_LOCAL_MACHINE,
+          key,
+          0,
+          nil,
+          REG_OPTION_NON_VOLATILE,
+          KEY_WRITE,
+          nil,
+          hkey,
+          disposition
+        )
 
-      # Adds an event source to the registry. Returns the disposition, which
-      # is either REG_CREATED_NEW_KEY (1) or REG_OPENED_EXISTING_KEY (2).
-      #
-      # The following are valid keys:
-      #
-      # * source                 # Source name.  Set to "Application" by default
-      # * key_name               # Name stored as the registry key
-      # * category_count         # Number of supported (custom) categories
-      # * event_message_file     # File (dll) that defines events
-      # * category_message_file  # File (dll) that defines categories
-      # * parameter_message_file # File (dll) that contains values for
-      #   variables in the event description.
-      # * supported_types        # See the 'event types' constants
-      #
-      # Of these keys, only +key_name+ is mandatory.  An ArgumentError is
-      # raised if you attempt to use an invalid key.  If +supported_types+
-      # is not specified then the following value is used:
-      #
-      # EventLog::ERROR | EventLog::WARN | EventLog::INFO
-      #
-      # The +event_message_file+ and +category_message_file+ are typically,
-      # though not necessarily, the same file.  See the documentation on .mc files
-      # for more details.
-      #
-      def self.add_event_source(args)
-         raise TypeError unless args.is_a?(Hash)
+        if rv != ERROR_SUCCESS
+          raise SystemCallError.new('RegCreateKeyEx', FFI.errno)
+        end
 
-         valid_keys = %w/
-            source
-            key_name
-            category_count
-            event_message_file
-            category_message_file
-            parameter_message_file
-            supported_types
-         /
+        hkey = hkey.read_ulong
 
-         key_base = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
+        if hash['category_count']
+          data = [hash['category_count']].pack('L')
 
-         # Default values
-         hash = {
-            'source'          => 'Application',
-            'supported_types' => ERROR | WARN | INFO
-         }
-
-         # Validate the keys, and convert symbols and case to lowercase strings.
-         args.each{ |key, val|
-            key = key.to_s.downcase
-            unless valid_keys.include?(key)
-               raise ArgumentError, "invalid key '#{key}'"
-            end
-            hash[key] = val
-         }
-
-         # The key_name must be specified
-         unless hash['key_name']
-            raise Error, 'no event_type specified'
-         end
-
-         hkey = [0].pack('L')
-         key  = key_base + hash['source']
-
-         disposition = [0].pack('L')
-
-         rv = RegCreateKeyEx(
-            HKEY_LOCAL_MACHINE,
-            key,
-            0,
-            nil,
-            REG_OPTION_NON_VOLATILE,
-            KEY_WRITE,
-            nil,
+          rv = RegSetValueEx(
             hkey,
-            disposition
-         )
+            'CategoryCount',
+            0,
+            REG_DWORD,
+            data,
+            data.size
+          )
 
-         if rv != ERROR_SUCCESS
-            error = 'RegCreateKeyEx() failed: ' + get_last_error
-            raise Error, error
-         end
+          if rv != ERROR_SUCCESS
+            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+          end
+        end
 
-         hkey = hkey.unpack('L')[0]
-         data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
+        if hash['category_message_file']
+          data = File.expand_path(hash['category_message_file'])
 
-         begin
-            rv = RegSetValueEx(
-               hkey,
-               'File',
-               0,
-               REG_EXPAND_SZ,
-               data,
-               data.size
-            )
+          rv = RegSetValueEx(
+            hkey,
+            'CategoryMessageFile',
+            0,
+            REG_EXPAND_SZ,
+            data,
+            data.size
+          )
 
-            if rv != ERROR_SUCCESS
-               error = 'RegSetValueEx() failed: ', get_last_error
-               raise Error, error
-            end
-         ensure
-            RegCloseKey(hkey)
-         end
+          if rv != ERROR_SUCCESS
+            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+          end
+        end
 
-         hkey = [0].pack('L')
-         key  = key_base << hash['source'] << "\\" << hash['key_name']
+        if hash['event_message_file']
+          data = File.expand_path(hash['event_message_file'])
 
-         disposition = [0].pack('L')
+          rv = RegSetValueEx(
+            hkey,
+            'EventMessageFile',
+            0,
+            REG_EXPAND_SZ,
+            data,
+            data.size
+          )
 
-         begin
-            rv = RegCreateKeyEx(
-               HKEY_LOCAL_MACHINE,
-               key,
-               0,
-               nil,
-               REG_OPTION_NON_VOLATILE,
-               KEY_WRITE,
-               nil,
-               hkey,
-               disposition
-            )
+          if rv != ERROR_SUCCESS
+            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+          end
+        end
 
-            if rv != ERROR_SUCCESS
-               raise Error, 'RegCreateKeyEx() failed: ' + get_last_error
-            end
+        if hash['parameter_message_file']
+          data = File.expand_path(hash['parameter_message_file'])
 
-            hkey = hkey.unpack('L')[0]
+          rv = RegSetValueEx(
+            hkey,
+            'ParameterMessageFile',
+            0,
+            REG_EXPAND_SZ,
+            data,
+            data.size
+          )
 
-            if hash['category_count']
-               data = [hash['category_count']].pack('L')
+          if rv != ERROR_SUCCESS
+            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+          end
+        end
 
-               rv = RegSetValueEx(
-                  hkey,
-                  'CategoryCount',
-                  0,
-                  REG_DWORD,
-                  data,
-                  data.size
-               )
+        data = [hash['supported_types']].pack('L')
 
-               if rv != ERROR_SUCCESS
-                  error = 'RegSetValueEx() failed: ' + get_last_error
-                  raise Error, error
-               end
-            end
+        rv = RegSetValueEx(
+          hkey,
+          'TypesSupported',
+          0,
+          REG_DWORD,
+          data,
+          data.size
+        )
 
-            if hash['category_message_file']
-               data = File.expand_path(hash['category_message_file'])
-
-               rv = RegSetValueEx(
-                  hkey,
-                  'CategoryMessageFile',
-                  0,
-                  REG_EXPAND_SZ,
-                  data,
-                  data.size
-               )
-
-               if rv != ERROR_SUCCESS
-                  error = 'RegSetValueEx() failed: ' + get_last_error
-                  raise Error, error
-               end
-            end
-
-            if hash['event_message_file']
-               data = File.expand_path(hash['event_message_file'])
-
-               rv = RegSetValueEx(
-                  hkey,
-                  'EventMessageFile',
-                  0,
-                  REG_EXPAND_SZ,
-                  data,
-                  data.size
-               )
-
-               if rv != ERROR_SUCCESS
-                  error = 'RegSetValueEx() failed: ' + get_last_error
-                  raise Error, error
-               end
-            end
-
-            if hash['parameter_message_file']
-               data = File.expand_path(hash['parameter_message_file'])
-
-               rv = RegSetValueEx(
-                  hkey,
-                  'ParameterMessageFile',
-                  0,
-                  REG_EXPAND_SZ,
-                  data,
-                  data.size
-               )
-
-               if rv != ERROR_SUCCESS
-                  error = 'RegSetValueEx() failed: ' + get_last_error
-                  raise Error, error
-               end
-            end
-
-            data = [hash['supported_types']].pack('L')
-
-            rv = RegSetValueEx(
-               hkey,
-               'TypesSupported',
-               0,
-               REG_DWORD,
-               data,
-               data.size
-            )
-
-            if rv != ERROR_SUCCESS
-               error = 'RegSetValueEx() failed: ' + get_last_error
-               raise Error, error
-            end
-         ensure
-            RegCloseKey(hkey)
-         end
-
-         disposition.unpack('L')[0]
+        if rv != ERROR_SUCCESS
+          raise SystemCallError.new('RegSetValueEx', FFI.errno)
+        end
+      ensure
+        RegCloseKey(hkey)
       end
 
-      # Backs up the event log to +file+.  Note that you cannot backup to
-      # a file that already exists or a Error will be raised.
-      #
-      def backup(file)
-         raise TypeError unless file.is_a?(String)
-         unless BackupEventLog(@handle, file)
-            error = 'BackupEventLog() failed: ' + get_last_error
-            raise Error, error
-         end
-         self
+      disposition.unpack('L')[0]
+    end
+
+    # Backs up the event log to +file+.  Note that you cannot backup to
+    # a file that already exists or a Error will be raised.
+    #
+    def backup(file)
+      raise TypeError unless file.is_a?(String)
+      unless BackupEventLog(@handle, file)
+        raise SystemCallError.new('BackupEventLog', FFI.errno)
       end
+    end
 
       # Clears the EventLog.  If +backup_file+ is provided, it backs up the
       # event log to that file first.
