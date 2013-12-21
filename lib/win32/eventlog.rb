@@ -370,68 +370,65 @@ module Win32
       end
     end
 
-      # Clears the EventLog.  If +backup_file+ is provided, it backs up the
-      # event log to that file first.
-      #
-      def clear(backup_file = nil)
-         raise TypeError unless backup_file.is_a?(String) if backup_file
-         backup_file = 0 unless backup_file
-
-         unless ClearEventLog(@handle, backup_file)
-            error = 'ClearEventLog() failed: ' + get_last_error
-            raise Error, error
-         end
-
-         self
+    # Clears the EventLog.  If +backup_file+ is provided, it backs up the
+    # event log to that file first.
+    #
+    def clear(backup_file = nil)
+      if backup_file
+        raise TypeError unless backup_file.is_a?(String)
+        backup_file = backup_file.wincode
       end
 
-      # Closes the EventLog handle. The handle is automatically closed for you
-      # if you use the block form of EventLog.new.
-      #
-      def close
-         CloseEventLog(@handle)
+      unless ClearEventLog(@handle, backup_file)
+        raise SystemCallError.new('ClearEventLog', FFI.errno)
+      end
+    end
+
+    # Closes the EventLog handle. The handle is automatically closed for you
+    # if you use the block form of EventLog.new.
+    #
+    def close
+      CloseEventLog(@handle)
+    end
+
+    # Indicates whether or not the event log is full.
+    #
+    def full?
+      ptr = FFI::MemoryPointer.new(:ulong, 1)
+      needed = FFI::MemoryPointer.new(:ulong)
+
+      unless GetEventLogInformation(@handle, 0, ptr, ptr.size, needed)
+        raise SystemCallError.new('GetEventLogInformation', FFI.errno)
       end
 
-      # Indicates whether or not the event log is full.
-      #
-      def full?
-         buf    = [0].pack('L') # dwFull
-         needed = [0].pack('L')
+      ptr.read_ulong != 0
+    end
 
-         unless GetEventLogInformation(@handle, 0, buf, buf.size, needed)
-            raise Error, 'GetEventLogInformation() failed: ' + get_last_error
-         end
+    # Returns the absolute record number of the oldest record.  Note that
+    # this is not guaranteed to be 1 because event log records can be
+    # overwritten.
+    #
+    def oldest_record_number
+      rec = FFI::MemoryPointer.new(:ulong)
 
-         buf[0,4].unpack('L')[0] != 0
+      unless GetOldestEventLogRecord(@handle, rec)
+        raise SystemCallError.new('GetOldestEventLogRecord', FFI.errno)
       end
 
-      # Returns the absolute record number of the oldest record.  Note that
-      # this is not guaranteed to be 1 because event log records can be
-      # overwritten.
-      #
-      def oldest_record_number
-         rec = [0].pack('L')
+      rec.read_ulong
+    end
 
-         unless GetOldestEventLogRecord(@handle, rec)
-            error = 'GetOldestEventLogRecord() failed: ' + get_last_error
-            raise Error, error
-         end
+    # Returns the total number of records for the given event log.
+    #
+    def total_records
+      total = FFI::MemoryPointer.new(:ulong)
 
-         rec.unpack('L')[0]
+      unless GetNumberOfEventLogRecords(@handle, total)
+        raise SystemCallError.new('GetNumberOfEventLogRecords', FFI.errno)
       end
 
-      # Returns the total number of records for the given event log.
-      #
-      def total_records
-         total = [0].pack('L')
-
-         unless GetNumberOfEventLogRecords(@handle, total)
-            error = 'GetNumberOfEventLogRecords() failed: ' + get_last_error
-            raise Error, error
-         end
-
-         total.unpack('L')[0]
-      end
+      total.read_ulong
+    end
 
       # Yields an EventLogStruct every time a record is written to the event
       # log. Unlike EventLog#tail, this method breaks out of the block after
