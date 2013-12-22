@@ -100,10 +100,6 @@ module Win32
       raise TypeError unless @source.is_a?(String)
       raise TypeError unless @server.is_a?(String) if @server
 
-      server = server.wincode
-      source = source.wincode
-      file   = file.wincode
-
       if file.nil?
         function = 'OpenEventLog()'
         @handle = OpenEventLog(server, source)
@@ -374,10 +370,7 @@ module Win32
     # event log to that file first.
     #
     def clear(backup_file = nil)
-      if backup_file
-        raise TypeError unless backup_file.is_a?(String)
-        backup_file = backup_file.wincode
-      end
+      raise TypeError unless backup_file.is_a?(String) if backup_file
 
       unless ClearEventLog(@handle, backup_file)
         raise SystemCallError.new('ClearEventLog', FFI.errno)
@@ -505,326 +498,322 @@ module Win32
       end
     end
 
-      # Iterates over each record in the event log, yielding a EventLogStruct
-      # for each record.  The offset value is only used when used in
-      # conjunction with the EventLog::SEEK_READ flag.  Otherwise, it is
-      # ignored.  If no flags are specified, then the default flags are:
-      #
-      # EventLog::SEQUENTIAL_READ | EventLog::FORWARDS_READ
-      #
-      # Note that, if you're performing a SEEK_READ, then the offset must
-      # refer to a record number that actually exists.  The default of 0
-      # may or may not work for your particular event log.
-      #
-      # The EventLogStruct struct contains the following members:
-      #
-      # * record_number  # Fixnum
-      # * time_generated # Time
-      # * time_written   # Time
-      # * event_id       # Fixnum
-      # * event_type     # String
-      # * category       # String
-      # * source         # String
-      # * computer       # String
-      # * user           # String or nil
-      # * description    # String or nil
-      # * string_inserts # An array of Strings or nil
-      #
-      # If no block is given the method returns an array of EventLogStruct's.
-      #
-      def read(flags = nil, offset = 0)
-         buf    = 0.chr * BUFFER_SIZE # 64k buffer
-         read   = [0].pack('L')
-         needed = [0].pack('L')
-         array  = []
-         lkey   = HKEY_LOCAL_MACHINE
+    # Iterates over each record in the event log, yielding a EventLogStruct
+    # for each record.  The offset value is only used when used in
+    # conjunction with the EventLog::SEEK_READ flag.  Otherwise, it is
+    # ignored.  If no flags are specified, then the default flags are:
+    #
+    # EventLog::SEQUENTIAL_READ | EventLog::FORWARDS_READ
+    #
+    # Note that, if you're performing a SEEK_READ, then the offset must
+    # refer to a record number that actually exists.  The default of 0
+    # may or may not work for your particular event log.
+    #
+    # The EventLogStruct struct contains the following members:
+    #
+    # * record_number  # Fixnum
+    # * time_generated # Time
+    # * time_written   # Time
+    # * event_id       # Fixnum
+    # * event_type     # String
+    # * category       # String
+    # * source         # String
+    # * computer       # String
+    # * user           # String or nil
+    # * description    # String or nil
+    # * string_inserts # An array of Strings or nil
+    #
+    # If no block is given the method returns an array of EventLogStruct's.
+    #
+    def read(flags = nil, offset = 0)
+      buf    = 0.chr * BUFFER_SIZE # 64k buffer
+      read   = FFI::MemoryPointer.new(:ulong)
+      needed = FFI::MemoryPointer.new(:ulong)
+      array  = []
+      lkey   = HKEY_LOCAL_MACHINE
 
-         unless flags
-            flags = FORWARDS_READ | SEQUENTIAL_READ
-         end
-
-         if @server
-            hkey = [0].pack('L')
-            if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-               raise Error, get_last_error
-            end
-            lkey = hkey.unpack('L').first
-         end
-
-         while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
-            GetLastError() == ERROR_INSUFFICIENT_BUFFER
-
-            if GetLastError() == ERROR_INSUFFICIENT_BUFFER
-               buf = (0.chr * buf.size) + (0.chr * needed.unpack('L')[0])
-               unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
-                  raise Error, get_last_error
-               end
-            end
-
-            dwread = read.unpack('L')[0]
-
-            while dwread > 0
-               struct       = EventLogStruct.new
-               event_source = buf[56..-1].nstrip
-               computer     = buf[56 + event_source.length + 1..-1].nstrip
-
-               user = get_user(buf)
-               strings, desc = get_description(buf, event_source, lkey)
-
-               struct.source         = event_source
-               struct.computer       = computer
-               struct.record_number  = buf[8,4].unpack('L')[0]
-               struct.time_generated = Time.at(buf[12,4].unpack('L')[0])
-               struct.time_written   = Time.at(buf[16,4].unpack('L')[0])
-               struct.event_id       = buf[20,4].unpack('L')[0] & 0x0000FFFF
-               struct.event_type     = get_event_type(buf[24,2].unpack('S')[0])
-               struct.user           = user
-               struct.category       = buf[28,2].unpack('S')[0]
-               struct.string_inserts = strings
-               struct.description 	 = desc
-
-               struct.freeze # This is read-only information
-
-               if block_given?
-                  yield struct
-               else
-                  array.push(struct)
-               end
-
-               if flags & EVENTLOG_BACKWARDS_READ > 0
-                  offset = buf[8,4].unpack('L')[0] - 1
-               else
-                  offset = buf[8,4].unpack('L')[0] + 1
-               end
-
-               length = buf[0,4].unpack('L')[0] # Length
-
-               dwread -= length
-               buf = buf[length..-1]
-            end
-
-            buf = 0.chr * BUFFER_SIZE
-            read = [0].pack('L')
-         end
-
-         block_given? ? nil : array
+      unless flags
+        flags = FORWARDS_READ | SEQUENTIAL_READ
       end
 
-      # This class method is nearly identical to the EventLog#read instance
-      # method, except that it takes a +source+ and +server+ as the first two
-      # arguments.
-      #
-      def self.read(source='Application', server=nil, flags=nil, offset=0)
-         self.new(source, server){ |log|
-            if block_given?
-               log.read(flags, offset){ |els| yield els }
-            else
-               return log.read(flags, offset)
-            end
-         }
+      if @server
+        hkey = FFI::MemoryPointer.new(:uintptr_t)
+        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
+          raise Error, get_last_error
+        end
+        lkey = hkey.unpack('L').first
       end
 
-      # Writes an event to the event log.  The following are valid keys:
-      #
-      # * source     # Event log source name. Defaults to "Application"
-      # * event_id   # Event ID (defined in event message file)
-      # * category   # Event category (defined in category message file)
-      # * data       # String that is written to the log
-      # * event_type # Type of event, e.g. EventLog::ERROR, etc.
-      #
-      # The +event_type+ keyword is the only mandatory keyword. The others are
-      # optional. Although the +source+ defaults to "Application", I
-      # recommend that you create an application specific event source and use
-      # that instead. See the 'EventLog.add_event_source' method for more
-      # details.
-      #
-      # The +event_id+ and +category+ values are defined in the message
-      # file(s) that you created for your application. See the tutorial.txt
-      # file for more details on how to create a message file.
-      #
-      # An ArgumentError is raised if you attempt to use an invalid key.
-      #
-      def report_event(args)
-         raise TypeError unless args.is_a?(Hash)
+      while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
+        FFI.errno == ERROR_INSUFFICIENT_BUFFER
 
-         valid_keys  = %w/source event_id category data event_type/
-         num_strings = 0
+        if FFI.errno == ERROR_INSUFFICIENT_BUFFER
+          buf = (0.chr * buf.size) + (0.chr * needed.read_ulong)
+          unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
+            raise Error, get_last_error
+          end
+        end
 
-         # Default values
-         hash = {
-            'source'   => @source,
-            'event_id' => 0,
-            'category' => 0,
-            'data'     => 0
-         }
+        dwread = read.read_ulong
 
-         # Validate the keys, and convert symbols and case to lowercase strings.
-         args.each{ |key, val|
-            key = key.to_s.downcase
-            unless valid_keys.include?(key)
-               raise ArgumentError, "invalid key '#{key}'"
-            end
-            hash[key] = val
-         }
+        while dwread > 0
+          struct       = EventLogStruct.new
+          event_source = buf[56..-1].nstrip
+          computer     = buf[56 + event_source.length + 1..-1].nstrip
 
-         # The event_type must be specified
-         unless hash['event_type']
-            raise Error, 'no event_type specified'
-         end
+          user = get_user(buf)
+          strings, desc = get_description(buf, event_source, lkey)
 
-         handle = RegisterEventSource(@server, hash['source'])
+          struct.source         = event_source
+          struct.computer       = computer
+          struct.record_number  = buf[:RecordNumber]
+          struct.time_generated = Time.at(buf[:TimeGenerated])
+          struct.time_written   = Time.at(buf[:TimeWritten])
+          struct.event_id       = buf[:EventIdentifier] & 0x0000FFFF
+          struct.event_type     = get_event_type(buf[:EventType])
+          struct.user           = user
+          struct.category       = buf[:EventCategory]
+          struct.string_inserts = strings
+          struct.description 	  = desc
 
-         if handle == 0
-            error = 'RegisterEventSource() failed: ' + get_last_error
-            raise Error, error
-         end
+          struct.freeze # This is read-only information
 
-         if hash['data'].is_a?(String)
-            data = hash['data'] << 0.chr
-            data = [data].pack('p*')
-            num_strings = 1
-         else
-            data = 0
-            num_strings = 0
-         end
+          if block_given?
+            yield struct
+          else
+            array.push(struct)
+          end
 
-         bool = ReportEvent(
-            handle,
-            hash['event_type'],
-            hash['category'],
-            hash['event_id'],
-            0,
-            num_strings,
-            0,
-            data,
-            0
-         )
+          if flags & EVENTLOG_BACKWARDS_READ > 0
+            offset = buf[8,4].unpack('L')[0] - 1
+          else
+            offset = buf[8,4].unpack('L')[0] + 1
+          end
 
-         unless bool
-            error = 'ReportEvent() failed: ' + get_last_error
-            raise Error, error
-         end
+          length = buf[0,4].unpack('L')[0] # Length
 
-         self
+          dwread -= length
+          buf = buf[length..-1]
+        end
+
+        buf = 0.chr * BUFFER_SIZE
+        read = [0].pack('L')
       end
 
-      alias :write :report_event
+      block_given? ? nil : array
+    end
 
-      private
+    # This class method is nearly identical to the EventLog#read instance
+    # method, except that it takes a +source+ and +server+ as the first two
+    # arguments.
+    #
+    def self.read(source='Application', server=nil, flags=nil, offset=0)
+      self.new(source, server){ |log|
+        if block_given?
+          log.read(flags, offset){ |els| yield els }
+        else
+          return log.read(flags, offset)
+        end
+      }
+    end
 
-      # A private method that reads the last event log record.
-      #
-      def read_last_event(handle=@handle, source=@source, server=@server)
-         buf    = 0.chr * BUFFER_SIZE # 64k buffer
-         read   = [0].pack('L')
-         needed = [0].pack('L')
-         lkey   = HKEY_LOCAL_MACHINE
+    # Writes an event to the event log.  The following are valid keys:
+    #
+    # * source     # Event log source name. Defaults to "Application"
+    # * event_id   # Event ID (defined in event message file)
+    # * category   # Event category (defined in category message file)
+    # * data       # String that is written to the log
+    # * event_type # Type of event, e.g. EventLog::ERROR, etc.
+    #
+    # The +event_type+ keyword is the only mandatory keyword. The others are
+    # optional. Although the +source+ defaults to "Application", I
+    # recommend that you create an application specific event source and use
+    # that instead. See the 'EventLog.add_event_source' method for more
+    # details.
+    #
+    # The +event_id+ and +category+ values are defined in the message
+    # file(s) that you created for your application. See the tutorial.txt
+    # file for more details on how to create a message file.
+    #
+    # An ArgumentError is raised if you attempt to use an invalid key.
+    #
+    def report_event(args)
+      raise TypeError unless args.is_a?(Hash)
 
-         flags = EVENTLOG_BACKWARDS_READ | EVENTLOG_SEQUENTIAL_READ
+      valid_keys  = %w/source event_id category data event_type/
+      num_strings = 0
 
-         unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
-            error = GetLastError()
-            if error == ERROR_INSUFFICIENT_BUFFER
-               buf = (0.chr * buf.size) + (0.chr * needed.unpack('L')[0])
-               unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
-                  raise Error, get_last_error
-               end
-            else
-               raise Error, get_last_error(error)
-            end
-         end
+      # Default values
+      hash = {
+        'source'   => @source,
+        'event_id' => 0,
+        'category' => 0,
+        'data'     => 0
+      }
 
-         if @server
-            hkey = [0].pack('L')
-            if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-               raise Error, get_last_error
-            end
-            lkey = hkey.unpack('L').first
-         end
+      # Validate the keys, and convert symbols and case to lowercase strings.
+      args.each{ |key, val|
+        key = key.to_s.downcase
+        unless valid_keys.include?(key)
+          raise ArgumentError, "invalid key '#{key}'"
+        end
+        hash[key] = val
+      }
 
-         event_source  = buf[56..-1].nstrip
-         computer      = buf[56 + event_source.length + 1..-1].nstrip
-         event_type    = get_event_type(buf[24,2].unpack('S')[0])
-         user          = get_user(buf)
-         strings, desc = get_description(buf, event_source, lkey)
-
-         struct = EventLogStruct.new
-         struct.source         = event_source
-         struct.computer       = computer
-         struct.record_number  = buf[8,4].unpack('L')[0]
-         struct.time_generated = Time.at(buf[12,4].unpack('L')[0])
-         struct.time_written   = Time.at(buf[16,4].unpack('L')[0])
-         struct.event_id       = buf[20,4].unpack('L')[0] & 0x0000FFFF
-         struct.event_type     = event_type
-         struct.user           = user
-         struct.category       = buf[28,2].unpack('S')[0]
-         struct.string_inserts = strings
-         struct.description 	 = desc
-
-         struct.freeze # This is read-only information
-
-         struct
+      # The event_type must be specified
+      unless hash['event_type']
+        raise Error, 'no event_type specified'
       end
 
-      # Private method that retrieves the user name based on data in the
-      # EVENTLOGRECORD buffer.
-      #
-      def get_user(buf)
-         return nil if buf[40,4].unpack('L')[0] <= 0 # UserSidLength
+      handle = RegisterEventSource(@server, hash['source'])
 
-         name        = 0.chr * MAX_SIZE
-         name_size   = [name.size].pack('L')
-         domain      = 0.chr * MAX_SIZE
-         domain_size = [domain.size].pack('L')
-         snu         = 0.chr * 4
-
-         offset = buf[44,4].unpack('L')[0] # UserSidOffset
-
-         val = LookupAccountSid(
-            @server,
-            [buf].pack('P').unpack('L')[0] + offset,
-            name,
-            name_size,
-            domain,
-            domain_size,
-            snu
-         )
-
-         # Return nil if the lookup failed
-         return val ? name.nstrip : nil
+      if handle == 0
+        raise SystemCallError.new('RegisterEventSource', FFI.errno)
       end
 
-      # Private method that converts a numeric event type into a human
-      # readable string.
-      #
-      def get_event_type(event)
-         case event
-            when EVENTLOG_ERROR_TYPE
-               'error'
-            when EVENTLOG_WARNING_TYPE
-               'warning'
-            when EVENTLOG_INFORMATION_TYPE, EVENTLOG_SUCCESS
-               'information'
-            when EVENTLOG_AUDIT_SUCCESS
-               'audit_success'
-            when EVENTLOG_AUDIT_FAILURE
-               'audit_failure'
-            else
-               nil
-         end
+      if hash['data'].is_a?(String)
+        data = hash['data'] << 0.chr
+        data = [data].pack('p*')
+        num_strings = 1
+      else
+        data = 0
+        num_strings = 0
       end
 
-      # Private method that gets the string inserts (Array) and the full
-      # event description (String) based on data from the EVENTLOGRECORD
-      # buffer.
-      #
-      def get_description(rec, event_source, lkey)
-         str     = rec[rec[36,4].unpack('L')[0] .. -1]
-         num     = rec[26,2].unpack('S')[0] # NumStrings
-         hkey    = [0].pack('L')
-         key     = BASE_KEY + "#{@source}\\#{event_source}"
-         buf     = 0.chr * 8192
-         va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
+      bool = ReportEvent(
+        handle,
+        hash['event_type'],
+        hash['category'],
+        hash['event_id'],
+        0,
+        num_strings,
+        0,
+        data,
+        0
+      )
+
+      unless bool
+        raise SystemCallError.new('ReportEvent', FFI.errno)
+      end
+    end
+
+    alias :write :report_event
+
+    private
+
+    # A private method that reads the last event log record.
+    #
+    def read_last_event(handle=@handle, source=@source, server=@server)
+      buf    = 0.chr * BUFFER_SIZE # 64k buffer
+      read   = [0].pack('L')
+      needed = [0].pack('L')
+      lkey   = HKEY_LOCAL_MACHINE
+
+      flags = EVENTLOG_BACKWARDS_READ | EVENTLOG_SEQUENTIAL_READ
+
+      unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
+        error = GetLastError()
+        if error == ERROR_INSUFFICIENT_BUFFER
+          buf = (0.chr * buf.size) + (0.chr * needed.unpack('L')[0])
+          unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
+            raise Error, get_last_error
+          end
+        else
+          raise Error, get_last_error(error)
+        end
+      end
+
+      if @server
+        hkey = [0].pack('L')
+        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
+          raise Error, get_last_error
+        end
+        lkey = hkey.unpack('L').first
+      end
+
+      event_source  = buf[56..-1].nstrip
+      computer      = buf[56 + event_source.length + 1..-1].nstrip
+      event_type    = get_event_type(buf[24,2].unpack('S')[0])
+      user          = get_user(buf)
+      strings, desc = get_description(buf, event_source, lkey)
+
+      struct = EventLogStruct.new
+      struct.source         = event_source
+      struct.computer       = computer
+      struct.record_number  = buf[8,4].unpack('L')[0]
+      struct.time_generated = Time.at(buf[12,4].unpack('L')[0])
+      struct.time_written   = Time.at(buf[16,4].unpack('L')[0])
+      struct.event_id       = buf[20,4].unpack('L')[0] & 0x0000FFFF
+      struct.event_type     = event_type
+      struct.user           = user
+      struct.category       = buf[28,2].unpack('S')[0]
+      struct.string_inserts = strings
+      struct.description 	 = desc
+
+      struct.freeze # This is read-only information
+
+      struct
+    end
+
+    # Private method that retrieves the user name based on data in the
+    # EVENTLOGRECORD buffer.
+    #
+    def get_user(buf)
+      return nil if buf[40,4].unpack('L')[0] <= 0 # UserSidLength
+
+      name        = 0.chr * MAX_SIZE
+      name_size   = [name.size].pack('L')
+      domain      = 0.chr * MAX_SIZE
+      domain_size = [domain.size].pack('L')
+      snu         = 0.chr * 4
+
+      offset = buf[44,4].unpack('L')[0] # UserSidOffset
+
+      val = LookupAccountSid(
+        @server,
+        [buf].pack('P').unpack('L')[0] + offset,
+        name,
+        name_size,
+        domain,
+        domain_size,
+        snu
+      )
+
+      # Return nil if the lookup failed
+      return val ? name.nstrip : nil
+    end
+
+    # Private method that converts a numeric event type into a human
+    # readable string.
+    #
+    def get_event_type(event)
+      case event
+        when EVENTLOG_ERROR_TYPE
+          'error'
+        when EVENTLOG_WARNING_TYPE
+          'warning'
+        when EVENTLOG_INFORMATION_TYPE, EVENTLOG_SUCCESS
+          'information'
+        when EVENTLOG_AUDIT_SUCCESS
+          'audit_success'
+        when EVENTLOG_AUDIT_FAILURE
+          'audit_failure'
+        else
+          nil
+      end
+    end
+
+    # Private method that gets the string inserts (Array) and the full
+    # event description (String) based on data from the EVENTLOGRECORD
+    # buffer.
+    #
+    def get_description(rec, event_source, lkey)
+      str     = rec[rec[36,4].unpack('L')[0] .. -1]
+      num     = rec[26,2].unpack('S')[0] # NumStrings
+      hkey    = [0].pack('L')
+      key     = BASE_KEY + "#{@source}\\#{event_source}"
+      buf     = 0.chr * 8192
+      va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
 
          begin
             if defined? Wow64DisableWow64FsRedirection
