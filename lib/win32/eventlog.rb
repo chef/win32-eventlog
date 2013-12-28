@@ -42,15 +42,15 @@ module Win32
 
     # Error event, an event that indicates a significant problem such as
     # loss of data or functionality.
-    ERROR = EVENTLOG_ERROR_TYPE
+    ERROR_TYPE = EVENTLOG_ERROR_TYPE
 
     # Warning event, an event that is not necessarily significant but may
     # indicate a possible future problem.
-    WARN = EVENTLOG_WARNING_TYPE
+    WARN_TYPE = EVENTLOG_WARNING_TYPE
 
     # Information event, an event that describes the successful operation
     # of an application, driver or service.
-    INFO = EVENTLOG_INFORMATION_TYPE
+    INFO_TYPE = EVENTLOG_INFORMATION_TYPE
 
     # Success audit event, an event that records an audited security attempt
     # that is successful.
