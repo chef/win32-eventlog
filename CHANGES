@@ -1,3 +1,9 @@
+== 0.6.0 - ???
+* The code base has mostly been converted to FFI. The EventLog#read method
+  now uses WMI behind the scenes.
+* The ERROR, WARN and INFO constants were changed to ERROR_TYPE, WARN_TYPE and
+  INFO_TYPE.
+
 == 0.5.3 - 26-Oct-2011
 * Fixed the String#nstrip method for Ruby 1.9.x. Thanks go to Jason Bourne
   for the spot and Ben Jansen for the patch.
