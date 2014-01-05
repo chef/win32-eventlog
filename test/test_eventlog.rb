@@ -88,22 +88,16 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   test "open_backup basic functionality" do
     assert_respond_to(EventLog, :open_backup)
   end
-=begin
 
   test "open_backup works as expected" do
-    EventLog.new('Application', @@hostname) do |log|
-      log.backup(@bakfile)
-    end
-
+    EventLog.new('Application', @@hostname){ |log| log.backup(@bakfile) }
     assert_nothing_raised{ @log = EventLog.open_backup(@bakfile) }
     assert_kind_of(EventLog, @log)
   end
 
+=begin
   test "it is possible to read and close the backup log file" do
-    EventLog.new('Application', @@hostname) do |log|
-      log.backup(@bakfile)
-    end
-
+    EventLog.new('Application', @@hostname){ |log| log.backup(@bakfile) }
     @log = EventLog.open_backup(@bakfile)
     assert_nothing_raised{ @log.read{ break } }
     assert_nothing_raised{ @log.close }
@@ -195,6 +189,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     EventLog.read{ |log| @entry = log; break }
     assert_true(@entry.frozen?)
   end
+=end
 
   test "server method basic functionality" do
     assert_respond_to(@log, :server)
@@ -257,6 +252,8 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_nothing_raised{ @log.total_records }
     assert_kind_of(Fixnum, @log.total_records)
   end
+
+=begin
 
   # We can't test that this method actually executes properly since it goes
   # into an endless loop.
