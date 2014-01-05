@@ -5,10 +5,7 @@
 # via the 'rake test' Rakefile task. This test will take a minute or two
 # to complete.
 #############################################################################
-require 'rubygems'
-gem 'test-unit'
-
-require 'test/unit'
+require 'test-unit'
 require 'win32/eventlog'
 require 'socket'
 require 'tmpdir'
@@ -16,9 +13,9 @@ include Win32
 
 class TC_Win32_EventLog < Test::Unit::TestCase
   def self.startup
-    @@hostname = Socket.gethostname      
+    @@hostname = Socket.gethostname
   end
-   
+
   def setup
     @log      = EventLog.new('Application')
     @logfile  = 'temp.evt'
@@ -26,11 +23,12 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     @records  = []
     @last     = nil
   end
- 
-  def test_version
-    assert_equal('0.5.3', EventLog::VERSION)
+
+  test "version constant is set to expected value" do
+    assert_equal('0.6.0', EventLog::VERSION)
   end
 
+=begin
   test "constructor basic functionality" do
     assert_respond_to(EventLog, :new)
     assert_nothing_raised{ EventLog.new }
@@ -51,7 +49,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   test "open is a singleton alias for new" do
     assert_alias_method(EventLog, :new, :open)
   end
-   
+
   test "constructor accepts a maximum of two arguments" do
     assert_raises(EventLog::Error){ EventLog.new('System', @@hostname, 'foo') }
   end
@@ -66,7 +64,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_respond_to(@log, :source)
     assert_equal('Application', @log.source)
   end
-  
+
   test "server accessor method basic functionality" do
     @log = EventLog.new('Application', @@hostname)
     assert_respond_to(@log, :server)
@@ -91,7 +89,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   test "open_backup basic functionality" do
     assert_respond_to(EventLog, :open_backup)
   end
-   
+
   test "open_backup works as expected" do
     EventLog.new('Application', @@hostname) do |log|
       log.backup(@bakfile)
@@ -110,18 +108,18 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_nothing_raised{ @log.read{ break } }
     assert_nothing_raised{ @log.close }
   end
-  
+
   # Ensure that an Array is returned in non-block form and that none of the
   # descriptions are nil.
-  # 
+  #
   # The test for descriptions was added as a result of ruby-talk:116528.
   # Thanks go to Joey Gibson for the spot.  The test for unique record
   # numbers was added to ensure no dups.
-  # 
+  #
   test "singleton read method works as expected" do
     assert_nothing_raised{ @array = EventLog.read }
     assert_kind_of(Array, @array)
-      
+
     record_numbers = []
     @array.each{ |log|
       assert_not_nil(log.description)
@@ -129,11 +127,11 @@ class TC_Win32_EventLog < Test::Unit::TestCase
       record_numbers << log.record_number
     }
   end
-  
+
   # I've added explicit breaks because an event log could be rather large.
-  # 
+  #
   test "singleton read method does not require any arguments" do
-    assert_nothing_raised{ EventLog.read{ break } }    
+    assert_nothing_raised{ EventLog.read{ break } }
   end
 
   test "singleton read method accepts a log type" do
@@ -149,16 +147,16 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "singleton read method accepts an offset argument" do
-    assert_nothing_raised{ EventLog.read("Application", nil, nil, 10){ break } } 
-  end  
-   
+    assert_nothing_raised{ EventLog.read("Application", nil, nil, 10){ break } }
+  end
+
   test "singleton read method accepts a maximum of four arguments" do
     assert_raises(ArgumentError){
       EventLog.read("Application", nil, nil, nil, nil){}
     }
   end
 
-  test "instance method read basic functionality" do   
+  test "instance method read basic functionality" do
     assert_respond_to(@log, :read)
     assert_nothing_raised{ @log.read{ break } }
   end
@@ -171,11 +169,11 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   test "instance method read accepts an offset" do
     assert_nothing_raised{ @log.read(nil, 500){ break } }
   end
-   
+
   test "instance method read accepts a maximum of two arguments" do
     assert_raises(ArgumentError){ @log.read(nil, 500, 'foo') }
   end
-   
+
   test "seek_read flag plus forwards_read flag works as expected" do
     flags = EventLog::SEEK_READ | EventLog::FORWARDS_READ
     assert_nothing_raised{ @last = @log.read[-10].record_number }
@@ -183,7 +181,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
       @records = EventLog.read(nil, nil, flags, @last)
     }
     assert_equal(10, @records.length)
-  end 
+  end
 
   # This test could fail, since a record number + 10 may not actually exist.
   test "seek_read flag plus backwards_read flag works as expected" do
@@ -192,12 +190,12 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_nothing_raised{ @records = EventLog.read(nil, nil, flags, @last) }
     assert_equal(11, @records.length)
   end
-   
+
   test "the eventlog struct returned by read is frozen" do
     EventLog.read{ |log| @entry = log; break }
-    assert_true(@entry.frozen?)      
+    assert_true(@entry.frozen?)
   end
-  
+
   test "server method basic functionality" do
     assert_respond_to(@log, :server)
     assert_nothing_raised{ @log.server }
@@ -217,7 +215,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   test "source method is readonly" do
     assert_raises(NoMethodError){ @log.source = 'foo' }
   end
- 
+
   test "file method basic functionality" do
     assert_respond_to(@log, :file)
     assert_nothing_raised{ @log.file }
@@ -226,14 +224,14 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "file method is readonly" do
     assert_raises(NoMethodError){ @log.file = 'foo' }
-  end 
-   
+  end
+
   # Since I don't want to actually clear anyone's event log, I can't really
   # verify that it works.
   test "clear method basic functionality" do
     assert_respond_to(@log, :clear)
   end
-   
+
   test "full method basic functionality" do
     assert_respond_to(@log, :full?)
     assert_nothing_raised{ @log.full? }
@@ -242,43 +240,43 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   test "full method returns a boolean" do
     assert_boolean(@log.full?)
   end
-      
+
   test "close method basic functionality" do
     assert_respond_to(@log, :close)
     assert_nothing_raised{ @log.close }
   end
- 
+
   test "oldest_record_number basic functionality" do
     assert_respond_to(@log, :oldest_record_number)
     assert_nothing_raised{ @log.oldest_record_number }
     assert_kind_of(Fixnum, @log.oldest_record_number)
   end
- 
+
   test "total_records basic functionality" do
     assert_respond_to(@log, :total_records)
     assert_nothing_raised{ @log.total_records }
     assert_kind_of(Fixnum, @log.total_records)
   end
-   
+
   # We can't test that this method actually executes properly since it goes
   # into an endless loop.
-  # 
+  #
   test "tail basic functionality" do
     assert_respond_to(@log, :tail)
     assert_raises(EventLog::Error){ @log.tail }
   end
-   
+
   # We can't test that this method actually executes properly since it goes
   # into an endless loop.
-  # 
+  #
   test "notify_change basic functionality" do
     assert_respond_to(@log, :notify_change)
     assert_raises(EventLog::Error){ @log.notify_change }
   end
-   
+
   # I can't really do more in depth testing for this method since there
   # isn't an event source I can reliably and safely write to.
-  # 
+  #
   test "report_event basic functionality" do
     assert_respond_to(@log, :report_event)
     assert_raises(ArgumentError){ @log.report_event }
@@ -288,7 +286,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_respond_to(@log, :write)
     assert_alias_method(@log, :write, :report_event)
   end
-  
+
   test "read event constants" do
     assert_not_nil(EventLog::FORWARDS_READ)
     assert_not_nil(EventLog::BACKWARDS_READ)
@@ -304,7 +302,8 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_not_nil(EventLog::AUDIT_SUCCESS)
     assert_not_nil(EventLog::AUDIT_FAILURE)
   end
-   
+=end
+
   def teardown
     @log.close rescue nil
     File.delete(@bakfile) if File.exists?(@bakfile)
@@ -312,8 +311,8 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     @records  = nil
     @last     = nil
   end
-   
+
   def self.shutdown
-    @@hostname = nil      
+    @@hostname = nil
   end
 end
