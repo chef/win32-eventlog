@@ -201,8 +201,8 @@ module Win32
         raise ArgumentError, 'no event_type specified'
       end
 
-      hkey = FFI::Pointer.new(:uintptr_t)
-      disposition = FFI::Pointer.new(:ulong)
+      hkey = FFI::MemoryPointer.new(:uintptr_t)
+      disposition = FFI::MemoryPointer.new(:ulong)
 
       key = key_base + hash['source']
 
@@ -242,8 +242,8 @@ module Win32
         RegCloseKey(hkey)
       end
 
-      hkey = FFI::Pointer.new(:uintptr_t)
-      disposition = FFI::Pointer.new(:ulong)
+      hkey = FFI::MemoryPointer.new(:uintptr_t)
+      disposition = FFI::MemoryPointer.new(:ulong)
 
       key  = key_base << hash['source'] << "\\" << hash['key_name']
 
