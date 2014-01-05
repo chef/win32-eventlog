@@ -293,16 +293,16 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_not_nil(EventLog::SEEK_READ)
     assert_not_nil(EventLog::SEQUENTIAL_READ)
   end
+=end
 
   test "event type constants" do
     assert_not_nil(EventLog::SUCCESS)
-    assert_not_nil(EventLog::ERROR)
-    assert_not_nil(EventLog::WARN)
-    assert_not_nil(EventLog::INFO)
+    assert_not_nil(EventLog::ERROR_TYPE)
+    assert_not_nil(EventLog::WARN_TYPE)
+    assert_not_nil(EventLog::INFO_TYPE)
     assert_not_nil(EventLog::AUDIT_SUCCESS)
     assert_not_nil(EventLog::AUDIT_FAILURE)
   end
-=end
 
   def teardown
     @log.close rescue nil
