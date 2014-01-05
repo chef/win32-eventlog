@@ -13,7 +13,7 @@ module Windows
     attach_function :ClearEventLog, :ClearEventLogA, [:handle, :string], :bool
     attach_function :CloseEventLog, [:handle], :bool
     attach_function :GetOldestEventLogRecord, [:handle, :pointer], :bool
-    attach_function :GetEventLogInformation, [:handle, :pointer], :bool
+    attach_function :GetEventLogInformation, [:handle, :dword, :pointer, :dword, :pointer], :bool
     attach_function :GetNumberOfEventLogRecords, [:handle, :pointer], :bool
     attach_function :OpenEventLog, :OpenEventLogA, [:string, :string], :handle
     attach_function :OpenBackupEventLog, :OpenBackupEventLogA, [:string, :string], :handle
