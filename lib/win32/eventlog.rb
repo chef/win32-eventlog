@@ -815,282 +815,276 @@ module Win32
       buf     = 0.chr * 8192
       va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
 
-         begin
-            if defined? Wow64DisableWow64FsRedirection
-               old_wow_val = 0.chr * 4
-               Wow64DisableWow64FsRedirection(old_wow_val)
+      begin
+        if defined? Wow64DisableWow64FsRedirection
+          old_wow_val = 0.chr * 4
+          Wow64DisableWow64FsRedirection(old_wow_val)
+        end
+
+        param_exe = nil
+        message_exe = nil
+
+        if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
+          hkey  = hkey.unpack('L')[0]
+
+          value = 'providerGuid'
+          guid  = 0.chr * MAX_SIZE
+          size  = [ guid.length].pack('L')
+
+          if RegQueryValueEx(hkey, value, 0, 0, guid, size) == 0
+            guid  = guid.nstrip
+            hkey2 = [0].pack('L')
+            key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\"
+            key   << "WINEVT\\Publishers\\#{guid}"
+
+            if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
+              hkey2  = hkey2.unpack('L')[0]
+              value = 'ParameterMessageFile'
+              file  = 0.chr * MAX_SIZE
+              size  = [ file.length].pack('L')
+
+              if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
+                file = file.nstrip
+                exe  = 0.chr * MAX_SIZE
+                ExpandEnvironmentStrings(file, exe, exe.size)
+                param_exe = exe.nstrip
+              end
+
+              value = 'MessageFileName'
+              file  = 0.chr * MAX_SIZE
+              size  = [file.length].pack('L')
+
+              if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
+                file = file.nstrip
+                exe  = 0.chr * MAX_SIZE
+                ExpandEnvironmentStrings(file, exe, exe.size)
+                message_exe = exe.nstrip
+              end
+
+              RegCloseKey(hkey2)
+            end
+          else
+            value = 'ParameterMessageFile'
+            file  = 0.chr * MAX_SIZE
+            size  = [ file.length].pack('L')
+
+            if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
+              file = file.nstrip
+              exe  = 0.chr * MAX_SIZE
+              ExpandEnvironmentStrings(file, exe, exe.size)
+              param_exe = exe.nstrip
             end
 
-            param_exe = nil
-            message_exe = nil
+            value = 'EventMessageFile'
+            file  = 0.chr * MAX_SIZE
+            size  = [file.length].pack('L')
 
-            if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
-               hkey  = hkey.unpack('L')[0]
+            if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
+              file = file.nstrip
+              exe  = 0.chr * MAX_SIZE
+              ExpandEnvironmentStrings(file, exe, exe.size)
+              message_exe = exe.nstrip
+            end
+          end
 
-               value = 'providerGuid'
-               guid  = 0.chr * MAX_SIZE
-               size  = [ guid.length].pack('L')
+          RegCloseKey(hkey)
+        elsif defined? EvtOpenPublisherMetadata # Vista or later
+          pubMetadata = EvtOpenPublisherMetadata(
+            0,
+            multi_to_wide(event_source),
+            0,
+            1024, # Default LCID
+            0
+          )
 
-               if RegQueryValueEx(hkey, value, 0, 0, guid, size) == 0
-                  guid  = guid.nstrip
-                  hkey2 = [0].pack('L')
-                  key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\"
-                  key   << "WINEVT\\Publishers\\#{guid}"
+          if pubMetadata > 0
+            buf2 = 0.chr * 8192
+            val  = 0.chr*4
 
-                  if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-                     hkey2  = hkey2.unpack('L')[0]
-                     value = 'ParameterMessageFile'
-                     file  = 0.chr * MAX_SIZE
-                     size  = [ file.length].pack('L')
+            EvtGetPublisherMetadataProperty(
+              pubMetadata,
+              2, # EvtPublisherMetadataParameterFilePath
+              0,
+              8192,
+              buf2,
+              val
+            )
 
-                     if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
-                        file = file.nstrip
-                        exe  = 0.chr * MAX_SIZE
-                        ExpandEnvironmentStrings(file, exe, exe.size)
-                        param_exe = exe.nstrip
-                     end
+            file = wide_to_multi(buf2[16..-1])
+            exe  = 0.chr * MAX_SIZE
+            ExpandEnvironmentStrings(file, exe, exe.size)
+            param_exe = exe.nstrip
 
-                     value = 'MessageFileName'
-                     file  = 0.chr * MAX_SIZE
-                     size  = [file.length].pack('L')
+            buf2 = 0.chr * 8192
+            val = 0.chr*4
 
-                     if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
-                        file = file.nstrip
-                        exe  = 0.chr * MAX_SIZE
-                        ExpandEnvironmentStrings(file, exe, exe.size)
-                        message_exe = exe.nstrip
-                     end
+            EvtGetPublisherMetadataProperty(
+              pubMetadata,
+              3, # EvtPublisherMetadataMessageFilePath
+              0,
+              8192,
+              buf2,
+              val
+            )
 
-                     RegCloseKey(hkey2)
-                  end
-               else
-                  value = 'ParameterMessageFile'
-                  file  = 0.chr * MAX_SIZE
-                  size  = [ file.length].pack('L')
+            file = wide_to_multi(buf2[16..-1])
+            exe  = 0.chr * MAX_SIZE
+            ExpandEnvironmentStrings(file, exe, exe.size)
+            message_exe = exe.nstrip
+            EvtClose(pubMetadata)
+          end
+        end
 
-                  if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
-                     file = file.nstrip
-                     exe  = 0.chr * MAX_SIZE
-                     ExpandEnvironmentStrings(file, exe, exe.size)
-                     param_exe = exe.nstrip
-                  end
+        if param_exe != nil
+          va_list = va_list0.map{ |v|
+            va = v
 
-                  value = 'EventMessageFile'
-                  file  = 0.chr * MAX_SIZE
-                  size  = [file.length].pack('L')
-
-                  if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
-                     file = file.nstrip
-                     exe  = 0.chr * MAX_SIZE
-                     ExpandEnvironmentStrings(file, exe, exe.size)
-                     message_exe = exe.nstrip
-                  end
-               end
-
-                RegCloseKey(hkey)
-            elsif defined? EvtOpenPublisherMetadata # Vista or later
-               pubMetadata = EvtOpenPublisherMetadata(
+            v.scan(/%%(\d+)/).uniq.each{ |x|
+              param_exe.split(';').each{ |lfile|
+                hmodule  = LoadLibraryEx(
+                  lfile,
                   0,
-                  multi_to_wide(event_source),
+                  DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
+                )
+
+                if hmodule != 0
+                  res = FormatMessage(
+                    FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                    hmodule,
+                    x.first.to_i,
+                    0,
+                    buf,
+                    buf.size,
+                    v
+                  )
+
+                  if res == 0
+                    event_id = 0xB0000000 | event_id
+                    res = FormatMessage(
+                      FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      hmodule,
+                      event_id,
+                      0,
+                      buf,
+                      buf.size,
+                      nil
+                    )
+                  end
+
+                  FreeLibrary(hmodule)
+                  break if buf.nstrip != ""
+                end
+              }
+
+              va = va.gsub("%%#{x.first}", buf.nstrip)
+            }
+
+            va
+          }
+        end
+
+        if message_exe != nil
+          buf  = 0.chr * 8192 # Reset the buffer
+
+          # Try to retrieve message *without* expanding the inserts yet
+          message_exe.split(';').each{ |lfile|
+            hmodule = LoadLibraryEx(
+              lfile,
+              0,
+              DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
+            )
+
+            event_id = rec[20,4].unpack('L')[0]
+
+            if hmodule != 0
+              res = FormatMessage(
+                FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                hmodule,
+                event_id,
+                0,
+                buf,
+                buf.size,
+                nil
+              )
+
+              if res == 0
+                event_id = 0xB0000000 | event_id
+
+                res = FormatMessage(
+                  FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                  hmodule,
+                  event_id,
                   0,
-                  1024, # Default LCID
-                  0
-               )
+                  buf,
+                  buf.size,
+                  nil
+                )
+              end
 
-               if pubMetadata > 0
-                  buf2 = 0.chr * 8192
-                  val  = 0.chr*4
-
-                  EvtGetPublisherMetadataProperty(
-                     pubMetadata,
-                     2, # EvtPublisherMetadataParameterFilePath
-                     0,
-                     8192,
-                     buf2,
-                     val
-                  )
-
-                  file = wide_to_multi(buf2[16..-1])
-                  exe  = 0.chr * MAX_SIZE
-                  ExpandEnvironmentStrings(file, exe, exe.size)
-                  param_exe = exe.nstrip
-
-                  buf2 = 0.chr * 8192
-                  val = 0.chr*4
-
-                  EvtGetPublisherMetadataProperty(
-                     pubMetadata,
-                     3, # EvtPublisherMetadataMessageFilePath
-                     0,
-                     8192,
-                     buf2,
-                     val
-                  )
-
-                  file = wide_to_multi(buf2[16..-1])
-                  exe  = 0.chr * MAX_SIZE
-                  ExpandEnvironmentStrings(file, exe, exe.size)
-                  message_exe = exe.nstrip
-                  EvtClose(pubMetadata)
-               end
+              FreeLibrary(hmodule)
+              break if buf.nstrip != "" # All messages read
             end
+          }
 
-            if param_exe != nil
-               va_list = va_list0.map{ |v|
-                  va = v
+          # Determine higest %n insert number
+          max_insert = [num, buf.nstrip.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
 
-                  v.scan(/%%(\d+)/).uniq.each{ |x|
-                     param_exe.split(';').each{ |lfile|
-                        hmodule  = LoadLibraryEx(
-                           lfile,
-                           0,
-                           DONT_RESOLVE_DLL_REFERENCES |
-                           LOAD_LIBRARY_AS_DATAFILE
-                        )
+          # Insert dummy strings not provided by caller
+          ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
 
-                        if hmodule != 0
-                           res = FormatMessage(
-                              FORMAT_MESSAGE_FROM_HMODULE |
-                              FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                              hmodule,
-                              x.first.to_i,
-                              0,
-                              buf,
-                              buf.size,
-                              v
-                           )
+          if num == 0
+            va_list_ptr = 0.chr * 4
+          else
+            va_list_ptr = va_list.map{ |x| [x + 0.chr].pack('P').unpack('L')[0] }.pack('L*')
+          end
 
-                           if res == 0
-                              event_id = 0xB0000000 | event_id
-                              res = FormatMessage(
-                                 FORMAT_MESSAGE_FROM_HMODULE |
-                                 FORMAT_MESSAGE_IGNORE_INSERTS,
-                                 hmodule,
-                                 event_id,
-                                 0,
-                                 buf,
-                                 buf.size,
-                                 nil
-                              )
-                           end
+          message_exe.split(';').each{ |lfile|
+            hmodule = LoadLibraryEx(
+              lfile,
+              0,
+              DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
+            )
 
-                           FreeLibrary(hmodule)
-                           break if buf.nstrip != ""
-                        end
-                     }
-                     va = va.gsub("%%#{x.first}", buf.nstrip)
-                  }
-                  va
-               }
+            event_id = rec[20,4].unpack('L')[0]
+
+            if hmodule != 0
+              res = FormatMessage(
+                FORMAT_MESSAGE_FROM_HMODULE |
+                FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                hmodule,
+                event_id,
+                0,
+                buf,
+                buf.size,
+                va_list_ptr
+              )
+
+              if res == 0
+                event_id = 0xB0000000 | event_id
+
+                res = FormatMessage(
+                  FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                  hmodule,
+                  event_id,
+                  0,
+                  buf,
+                  buf.size,
+                  va_list_ptr
+                )
+              end
+
+              FreeLibrary(hmodule)
+              break if buf.nstrip != "" # All messages read
             end
-
-            if message_exe != nil
-               buf  = 0.chr * 8192 # Reset the buffer
-
-               # Try to retrieve message *without* expanding the inserts yet
-               message_exe.split(';').each{ |lfile|
-                  hmodule = LoadLibraryEx(
-                     lfile,
-                     0,
-                     DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
-                  )
-
-                  event_id = rec[20,4].unpack('L')[0]
-
-                  if hmodule != 0
-                     res = FormatMessage(
-                        FORMAT_MESSAGE_FROM_HMODULE |
-                        FORMAT_MESSAGE_IGNORE_INSERTS,
-                        hmodule,
-                        event_id,
-                        0,
-                        buf,
-                        buf.size,
-                        nil
-                     )
-
-                     if res == 0
-                        event_id = 0xB0000000 | event_id
-
-                        res = FormatMessage(
-                           FORMAT_MESSAGE_FROM_HMODULE |
-                           FORMAT_MESSAGE_IGNORE_INSERTS,
-                           hmodule,
-                           event_id,
-                           0,
-                           buf,
-                           buf.size,
-                           nil
-                        )
-                     end
-
-                     FreeLibrary(hmodule)
-                     break if buf.nstrip != "" # All messages read
-                  end
-               }
-
-               # Determine higest %n insert number
-               max_insert = [num, buf.nstrip.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
-
-               # Insert dummy strings not provided by caller
-               ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
-
-               if num == 0
-                  va_list_ptr = 0.chr * 4
-               else
-                  va_list_ptr = va_list.map{ |x|
-                     [x + 0.chr].pack('P').unpack('L')[0]
-                  }.pack('L*')
-               end
-
-               message_exe.split(';').each{ |lfile|
-                  hmodule = LoadLibraryEx(
-                     lfile,
-                     0,
-                     DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
-                  )
-
-                  event_id = rec[20,4].unpack('L')[0]
-
-                  if hmodule != 0
-                     res = FormatMessage(
-                        FORMAT_MESSAGE_FROM_HMODULE |
-                        FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                        hmodule,
-                        event_id,
-                        0,
-                        buf,
-                        buf.size,
-                        va_list_ptr
-                     )
-
-                     if res == 0
-                        event_id = 0xB0000000 | event_id
-
-                        res = FormatMessage(
-                           FORMAT_MESSAGE_FROM_HMODULE |
-                           FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                           hmodule,
-                           event_id,
-                           0,
-                           buf,
-                           buf.size,
-                           va_list_ptr
-                        )
-                     end
-
-                     FreeLibrary(hmodule)
-                     break if buf.nstrip != "" # All messages read
-                  end
-               }
-            end
-         ensure
-           if defined? Wow64RevertWow64FsRedirection
-             Wow64RevertWow64FsRedirection(old_wow_val.unpack('L')[0])
-           end
-         end
-
-         [va_list0, buf.nstrip]
+          }
+        end
+      ensure
+        if defined? Wow64RevertWow64FsRedirection
+          Wow64RevertWow64FsRedirection(old_wow_val.unpack('L')[0])
+        end
       end
-   end
+
+      [va_list0, buf.nstrip]
+    end
+  end
 end
