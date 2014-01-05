@@ -28,7 +28,6 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_equal('0.6.0', EventLog::VERSION)
   end
 
-=begin
   test "constructor basic functionality" do
     assert_respond_to(EventLog, :new)
     assert_nothing_raised{ EventLog.new }
@@ -46,14 +45,15 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_nothing_raised{ EventLog.new('System', @@hostname) }
   end
 
-  test "open is a singleton alias for new" do
-    assert_alias_method(EventLog, :new, :open)
+  #test "open is a singleton alias for new" do
+  #  assert_alias_method(EventLog, :new, :open)
+  #end
+
+  test "constructor accepts a maximum of three arguments" do
+    assert_raises(ArgumentError){ EventLog.new('System', @@hostname, 'foo', 'bar') }
   end
 
-  test "constructor accepts a maximum of two arguments" do
-    assert_raises(EventLog::Error){ EventLog.new('System', @@hostname, 'foo') }
-  end
-
+=begin
   test "arguments to constructor must be strings" do
     assert_raises(TypeError){ EventLog.open(1) }
     assert_raises(TypeError){ EventLog.open('System', 1) }
@@ -287,13 +287,13 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_alias_method(@log, :write, :report_event)
   end
 
+=end
   test "read event constants" do
     assert_not_nil(EventLog::FORWARDS_READ)
     assert_not_nil(EventLog::BACKWARDS_READ)
     assert_not_nil(EventLog::SEEK_READ)
     assert_not_nil(EventLog::SEQUENTIAL_READ)
   end
-=end
 
   test "event type constants" do
     assert_not_nil(EventLog::SUCCESS)
