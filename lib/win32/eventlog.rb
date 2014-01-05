@@ -219,7 +219,7 @@ module Win32
       )
 
       if rv != ERROR_SUCCESS
-        raise SystemCallError.new('RegCreateKeyEx', FFI.errno)
+        raise SystemCallError.new('RegCreateKeyEx', rv)
       end
 
       hkey = hkey.read_ulong_long
@@ -236,7 +236,7 @@ module Win32
         )
 
         if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', FFI.errno)
+          raise SystemCallError.new('RegSetValueEx', rv)
         end
       ensure
         RegCloseKey(hkey)
@@ -261,7 +261,7 @@ module Win32
         )
 
         if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegCreateKeyEx', FFI.errno)
+          raise SystemCallError.new('RegCreateKeyEx', rv)
         end
 
         hkey = hkey.read_ulong_long
@@ -279,7 +279,7 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+            raise SystemCallError.new('RegSetValueEx', rv)
           end
         end
 
@@ -297,7 +297,7 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+            raise SystemCallError.new('RegSetValueEx', rv)
           end
         end
 
@@ -315,7 +315,7 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+            raise SystemCallError.new('RegSetValueEx', rv)
           end
         end
 
@@ -333,7 +333,7 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', FFI.errno)
+            raise SystemCallError.new('RegSetValueEx', rv)
           end
         end
 
@@ -349,7 +349,7 @@ module Win32
         )
 
         if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', FFI.errno)
+          raise SystemCallError.new('RegSetValueEx', rv)
         end
       ensure
         RegCloseKey(hkey)
