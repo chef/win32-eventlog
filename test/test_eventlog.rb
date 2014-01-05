@@ -53,7 +53,6 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_raises(ArgumentError){ EventLog.new('System', @@hostname, 'foo', 'bar') }
   end
 
-=begin
   test "arguments to constructor must be strings" do
     assert_raises(TypeError){ EventLog.open(1) }
     assert_raises(TypeError){ EventLog.open('System', 1) }
@@ -83,12 +82,13 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "backup method fails if backup file already exists" do
     assert_nothing_raised{ @log.backup(@bakfile) }
-    assert_raise(EventLog::Error){ @log.backup(@bakfile) }
+    assert_raise(SystemCallError){ @log.backup(@bakfile) }
   end
 
   test "open_backup basic functionality" do
     assert_respond_to(EventLog, :open_backup)
   end
+=begin
 
   test "open_backup works as expected" do
     EventLog.new('Application', @@hostname) do |log|
