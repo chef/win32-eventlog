@@ -22,6 +22,7 @@ module Windows
     attach_function :RegCloseKey, [:hkey], :long
     attach_function :RegConnectRegistry, :RegConnectRegistryA, [:string, :hkey, :pointer], :long
     attach_function :RegCreateKeyEx, :RegCreateKeyExA, [:hkey, :string, :dword, :string, :dword, :dword, :pointer, :pointer, :pointer], :long
+    attach_function :RegSetValueEx, :RegSetValueExA, [:hkey, :string, :dword, :dword, :pointer, :dword], :long
 
     ffi_lib :kernel32
 
