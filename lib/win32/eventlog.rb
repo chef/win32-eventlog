@@ -153,15 +153,14 @@ module Win32
     # * category_count         # Number of supported (custom) categories
     # * event_message_file     # File (dll) that defines events
     # * category_message_file  # File (dll) that defines categories
-    # * parameter_message_file # File (dll) that contains values for
-    #   variables in the event description.
+    # * parameter_message_file # File (dll) that contains values for variables in the event description.
     # * supported_types        # See the 'event types' constants
     #
     # Of these keys, only +key_name+ is mandatory.  An ArgumentError is
     # raised if you attempt to use an invalid key.  If +supported_types+
     # is not specified then the following value is used:
     #
-    # EventLog::ERROR | EventLog::WARN | EventLog::INFO
+    # EventLog::ERROR_TYPE | EventLog::WARN_TYPE | EventLog::INFO_TYPE
     #
     # The +event_message_file+ and +category_message_file+ are typically,
     # though not necessarily, the same file.  See the documentation on .mc files
@@ -185,7 +184,7 @@ module Win32
       # Default values
       hash = {
         'source'          => 'Application',
-        'supported_types' => ERROR | WARN | INFO
+        'supported_types' => ERROR_TYPE | WARN_TYPE | INFO_TYPE
       }
 
       # Validate the keys, and convert symbols and case to lowercase strings.
@@ -202,10 +201,10 @@ module Win32
         raise ArgumentError, 'no event_type specified'
       end
 
-      hkey = FFI::Pointer.new(:ulong)
+      hkey = FFI::Pointer.new(:uintptr_t)
       disposition = FFI::Pointer.new(:ulong)
 
-      key  = key_base + hash['source']
+      key = key_base + hash['source']
 
       rv = RegCreateKeyEx(
         HKEY_LOCAL_MACHINE,
@@ -223,7 +222,7 @@ module Win32
         raise SystemCallError.new('RegCreateKeyEx', FFI.errno)
       end
 
-      hkey = hkey.read_ulong
+      hkey = hkey.read_ulong_long
       data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
 
       begin
@@ -243,7 +242,7 @@ module Win32
         RegCloseKey(hkey)
       end
 
-      hkey = FFI::Pointer.new(:ulong)
+      hkey = FFI::Pointer.new(:uintptr_t)
       disposition = FFI::Pointer.new(:ulong)
 
       key  = key_base << hash['source'] << "\\" << hash['key_name']
@@ -265,10 +264,10 @@ module Win32
           raise SystemCallError.new('RegCreateKeyEx', FFI.errno)
         end
 
-        hkey = hkey.read_ulong
+        hkey = hkey.read_ulong_long
 
         if hash['category_count']
-          data = [hash['category_count']].pack('L')
+          data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
 
           rv = RegSetValueEx(
             hkey,
@@ -286,6 +285,7 @@ module Win32
 
         if hash['category_message_file']
           data = File.expand_path(hash['category_message_file'])
+          data = FFI::MemoryPointer.from_string(data)
 
           rv = RegSetValueEx(
             hkey,
@@ -303,6 +303,7 @@ module Win32
 
         if hash['event_message_file']
           data = File.expand_path(hash['event_message_file'])
+          data = FFI::MemoryPointer.from_string(data)
 
           rv = RegSetValueEx(
             hkey,
@@ -320,6 +321,7 @@ module Win32
 
         if hash['parameter_message_file']
           data = File.expand_path(hash['parameter_message_file'])
+          data = FFI::MemoryPointer.from_string(data)
 
           rv = RegSetValueEx(
             hkey,
@@ -335,7 +337,7 @@ module Win32
           end
         end
 
-        data = [hash['supported_types']].pack('L')
+        data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['supported_types'])
 
         rv = RegSetValueEx(
           hkey,
@@ -353,7 +355,7 @@ module Win32
         RegCloseKey(hkey)
       end
 
-      disposition.unpack('L')[0]
+      disposition.read_ulong
     end
 
     # Backs up the event log to +file+.  Note that you cannot backup to
