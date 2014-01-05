@@ -101,10 +101,10 @@ module Win32
       raise TypeError unless @server.is_a?(String) if @server
 
       if file.nil?
-        function = 'OpenEventLog()'
+        function = 'OpenEventLog'
         @handle = OpenEventLog(server, source)
       else
-        function = 'OpenBackupEventLog()'
+        function = 'OpenBackupEventLog'
         @handle = OpenBackupEventLog(server, file)
       end
 
