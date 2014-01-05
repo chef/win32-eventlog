@@ -27,6 +27,15 @@ module Windows
     BUFFER_SIZE = 1024 * 64
     MAX_SIZE    = 256
     MAX_STRINGS = 16
+
     BASE_KEY    = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
+
+    STANDARD_RIGHTS_WRITE = 0x20000
+    SYNCHRONIZE           = 0x100000
+
+    KEY_SET_VALUE      = 0x0002
+    KEY_CREATE_SUB_KEY = 0x0004
+
+    KEY_WRITE = (STANDARD_RIGHTS_WRITE|KEY_SET_VALUE|KEY_CREATE_SUB_KEY) & (~SYNCHRONIZE)
   end
 end
