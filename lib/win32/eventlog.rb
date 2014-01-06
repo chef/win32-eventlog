@@ -530,7 +530,7 @@ module Win32
     # If no block is given the method returns an array of EventLogStruct's.
     #
     def read(flags = nil, offset = 0)
-      buf    = 0.chr * BUFFER_SIZE # 64k buffer
+      buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
       read   = FFI::MemoryPointer.new(:ulong)
       needed = FFI::MemoryPointer.new(:ulong)
       array  = []
@@ -543,25 +543,27 @@ module Win32
       if @server
         hkey = FFI::MemoryPointer.new(:uintptr_t)
         if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-          raise Error, get_last_error
+          raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.unpack('L').first
+        lkey = hkey.read_ulong_long
       end
 
       while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
         FFI.errno == ERROR_INSUFFICIENT_BUFFER
 
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
-          buf = (0.chr * buf.size) + (0.chr * needed.read_ulong)
+          needed = needed.read_ulong / EVENTLOGRECORD.size
+          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
           unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
-            raise Error, get_last_error
+            raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
         end
 
         dwread = read.read_ulong
 
         while dwread > 0
-          struct       = EventLogStruct.new
+          record = EVENTLOGRECORD.new(buf)
+=begin
           event_source = buf[56..-1].nstrip
           computer     = buf[56 + event_source.length + 1..-1].nstrip
 
@@ -587,21 +589,22 @@ module Win32
           else
             array.push(struct)
           end
+=end
 
           if flags & EVENTLOG_BACKWARDS_READ > 0
-            offset = buf[8,4].unpack('L')[0] - 1
+            offset = record[:RecordNumber] - 1
           else
-            offset = buf[8,4].unpack('L')[0] + 1
+            offset = record[:RecordNumber] + 1
           end
 
-          length = buf[0,4].unpack('L')[0] # Length
+          length = record[:Length]
 
           dwread -= length
-          buf = buf[length..-1]
+          buf += length
         end
 
-        buf = 0.chr * BUFFER_SIZE
-        read = [0].pack('L')
+        buf  = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+        read = read.read_ulong
       end
 
       block_given? ? nil : array
@@ -1119,7 +1122,9 @@ end
 if $0 == __FILE__
   include Win32
   begin
-    log = EventLog.new
+    log = EventLog.new('Application')
+    log.read
+=begin
     log.report_event(
       :source => 'RubyMsg',
       :event_id => 4,
@@ -1128,6 +1133,7 @@ if $0 == __FILE__
       :data => ['First String', 'Second String'],
       :event_type => EventLog::WARN_TYPE
     )
+=end
   ensure
     log.close
   end
