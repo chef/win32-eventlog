@@ -623,11 +623,11 @@ module Win32
 
     # Writes an event to the event log.  The following are valid keys:
     #
-    # * source     # Event log source name. Defaults to "Application"
-    # * event_id   # Event ID (defined in event message file)
-    # * category   # Event category (defined in category message file)
-    # * data       # String that is written to the log
-    # * event_type # Type of event, e.g. EventLog::ERROR, etc.
+    # * source     # Event log source name. Defaults to "Application".
+    # * event_id   # Event ID (defined in event message file).
+    # * category   # Event category (defined in category message file).
+    # * data       # String, or array of strings, that is written to the log.
+    # * event_type # Type of event, e.g. EventLog::ERROR_TYPE, etc.
     #
     # The +event_type+ keyword is the only mandatory keyword. The others are
     # optional. Although the +source+ defaults to "Application", I
@@ -644,7 +644,7 @@ module Win32
     def report_event(args)
       raise TypeError unless args.is_a?(Hash)
 
-      valid_keys  = %w/source event_id category data event_type/
+      valid_keys  = %w[source event_id category data event_type]
       num_strings = 0
 
       # Default values
@@ -676,11 +676,34 @@ module Win32
       end
 
       if hash['data'].is_a?(String)
-        data = hash['data'] << 0.chr
-        data = [data].pack('p*')
+        strptrs = []
+        strptrs << FFI::MemoryPointer.from_string(hash['data'])
+        strptrs << nil
+
+        data = FFI::MemoryPointer.new(:pointer, strptrs.size)
+
+        strptrs.each_with_index do |p, i|
+          data[i].put_pointer(0, p)
+        end
+
         num_strings = 1
+      elsif hash['data'].is_a?(Array)
+        strptrs = []
+
+        hash['data'].each{ |str|
+          strptrs << FFI::MemoryPointer.from_string(str)
+        }
+
+        strptrs << nil
+        data = FFI::MemoryPointer.new(:pointer, strptrs.size)
+
+        strptrs.each_with_index do |p, i|
+          data[i].put_pointer(0, p)
+        end
+
+        num_strings = hash['data'].size
       else
-        data = 0
+        data = nil
         num_strings = 0
       end
 
@@ -689,11 +712,11 @@ module Win32
         hash['event_type'],
         hash['category'],
         hash['event_id'],
-        0,
+        nil,
         num_strings,
         0,
         data,
-        0
+        nil
       )
 
       unless bool
@@ -1090,5 +1113,22 @@ module Win32
 
       [va_list0, buf.nstrip]
     end
+  end
+end
+
+if $0 == __FILE__
+  include Win32
+  begin
+    log = EventLog.new
+    log.report_event(
+      :source => 'RubyMsg',
+      :event_id => 4,
+      :category => 2,
+      #:data => 'This is a test warning',
+      :data => ['First String', 'Second String'],
+      :event_type => EventLog::WARN_TYPE
+    )
+  ensure
+    log.close
   end
 end
