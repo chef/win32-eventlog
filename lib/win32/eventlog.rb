@@ -842,11 +842,11 @@ module Win32
     # buffer.
     #
     def get_description(rec, event_source, lkey)
-      str     = rec[rec[36,4].unpack('L')[0] .. -1]
-      num     = rec[26,2].unpack('S')[0] # NumStrings
-      hkey    = [0].pack('L')
+      str     = rec[rec[:StringOffset] .. -1]
+      num     = rec[:NumStrings]
+      hkey    = FFI::MemoryPointer.new(:uintptr_t)
       key     = BASE_KEY + "#{@source}\\#{event_source}"
-      buf     = 0.chr * 8192
+      buf     = FFI::MemoryPointer.new(:char, 8192)
       va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
 
       begin
@@ -859,54 +859,62 @@ module Win32
         message_exe = nil
 
         if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
-          hkey  = hkey.unpack('L')[0]
-
+          hkey  = hkey.read_ulong_long
           value = 'providerGuid'
-          guid  = 0.chr * MAX_SIZE
-          size  = [ guid.length].pack('L')
+
+          guid  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+          size  = FFI::MemoryPointer.new(:ulong)
+
+          size.write_ulong(guid.size)
 
           if RegQueryValueEx(hkey, value, 0, 0, guid, size) == 0
-            guid  = guid.nstrip
-            hkey2 = [0].pack('L')
-            key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\"
-            key   << "WINEVT\\Publishers\\#{guid}"
+            guid  = guid.read_string_to_null
+            hkey2 = FFI::MemoryPointer.new(:uintptr_t)
+            key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
 
             if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-              hkey2  = hkey2.unpack('L')[0]
+              hkey2  = hkey2.read_ulong_long
+
               value = 'ParameterMessageFile'
-              file  = 0.chr * MAX_SIZE
-              size  = [ file.length].pack('L')
+              file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+              size  = FFI::MemoryPointer.new(:ulong)
+
+              size.write_ulong(file.size)
 
               if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
-                file = file.nstrip
-                exe  = 0.chr * MAX_SIZE
+                file = file.read_string_to_null
+                exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
-                param_exe = exe.nstrip
+                param_exe = exe.read_string_to_null
               end
 
               value = 'MessageFileName'
-              file  = 0.chr * MAX_SIZE
-              size  = [file.length].pack('L')
+              file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+              size  = FFI::MemoryPointer.new(:ulong)
+
+              size.write_ulong(file.size)
 
               if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
-                file = file.nstrip
-                exe  = 0.chr * MAX_SIZE
+                file = file.read_string_to_null
+                exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
-                message_exe = exe.nstrip
+                message_exe = exe.read_string_to_null
               end
 
               RegCloseKey(hkey2)
             end
           else
             value = 'ParameterMessageFile'
-            file  = 0.chr * MAX_SIZE
-            size  = [ file.length].pack('L')
+            file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+            size  = FFI::MemoryPointer.new(:ulong)
+
+            size.write_ulong(file.size)
 
             if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
-              file = file.nstrip
-              exe  = 0.chr * MAX_SIZE
+              file = file.read_string_to_null
+              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
-              param_exe = exe.nstrip
+              param_exe = exe.read_string_to_null
             end
 
             value = 'EventMessageFile'
