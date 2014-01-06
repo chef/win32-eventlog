@@ -1,6 +1,7 @@
 == 0.6.0 - ???
 * The code base has mostly been converted to FFI. The EventLog#read method
   now uses WMI behind the scenes.
+* The report_event method now accepts an array of strings.
 * The ERROR, WARN and INFO constants were changed to ERROR_TYPE, WARN_TYPE and
   INFO_TYPE.
 
