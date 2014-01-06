@@ -563,10 +563,9 @@ module Win32
 
         while dwread > 0
           record = EVENTLOGRECORD.new(buf)
+          event_source = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
+          computer = buf.read_bytes(buf.size)[56 + event_source.length + 1..-1][/^[^\0]*/]
 =begin
-          event_source = buf[56..-1].nstrip
-          computer     = buf[56 + event_source.length + 1..-1].nstrip
-
           user = get_user(buf)
           strings, desc = get_description(buf, event_source, lkey)
 
