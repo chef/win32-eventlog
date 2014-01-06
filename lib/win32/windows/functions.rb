@@ -25,12 +25,16 @@ module Windows
     attach_function :RegConnectRegistry, :RegConnectRegistryA, [:string, :hkey, :pointer], :long
     attach_function :RegCreateKeyEx, :RegCreateKeyExA, [:hkey, :string, :dword, :string, :dword, :dword, :pointer, :pointer, :pointer], :long
     attach_function :RegisterEventSource, :RegisterEventSourceA, [:string, :string], :handle
+    attach_function :RegOpenKeyEx, :RegOpenKeyExA, [:hkey, :string, :dword, :ulong, :pointer], :long
+    attach_function :RegQueryValueEx, :RegQueryValueExA, [:hkey, :string, :pointer, :pointer, :pointer, :pointer], :long
     attach_function :RegSetValueEx, :RegSetValueExA, [:hkey, :string, :dword, :dword, :pointer, :dword], :long
     attach_function :ReportEvent, :ReportEventA, [:handle, :word, :word, :dword, :pointer, :word, :dword, :pointer, :pointer], :bool
 
     ffi_lib :kernel32
 
-    attach_function :WaitForSingleObject, [:handle, :dword], :dword
     attach_function :CreateEvent, :CreateEventA, [:pointer, :bool, :bool, :string], :handle
+    attach_function :ExpandEnvironmentStrings, :ExpandEnvironmentStringsA, [:string, :pointer, :dword], :dword
+    attach_function :WaitForSingleObject, [:handle, :dword], :dword
+    attach_function :Wow64DisableWow64FsRedirection, [:pointer], :bool
   end
 end
