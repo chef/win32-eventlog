@@ -16,6 +16,7 @@ module Windows
     attach_function :GetOldestEventLogRecord, [:handle, :pointer], :bool
     attach_function :GetEventLogInformation, [:handle, :dword, :pointer, :dword, :pointer], :bool
     attach_function :GetNumberOfEventLogRecords, [:handle, :pointer], :bool
+    attach_function :LookupAccountSid, :LookupAccountSidA, [:string, :pointer, :pointer, :pointer, :pointer, :pointer, :pointer], :bool
     attach_function :OpenEventLog, :OpenEventLogA, [:string, :string], :handle
     attach_function :OpenBackupEventLog, :OpenBackupEventLogA, [:string, :string], :handle
     attach_function :NotifyChangeEventLog, [:handle, :handle], :bool
