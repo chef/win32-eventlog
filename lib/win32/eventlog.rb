@@ -562,24 +562,26 @@ module Win32
         dwread = read.read_ulong
 
         while dwread > 0
+          struct = EventLogStruct.new
           record = EVENTLOGRECORD.new(buf)
+
           event_source = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
           computer = buf.read_bytes(buf.size)[56 + event_source.length + 1..-1][/^[^\0]*/]
-=begin
-          user = get_user(buf)
-          strings, desc = get_description(buf, event_source, lkey)
+          user = get_user(record)
+
+          #strings, desc = get_description(buf, event_source, lkey)
 
           struct.source         = event_source
           struct.computer       = computer
-          struct.record_number  = buf[:RecordNumber]
-          struct.time_generated = Time.at(buf[:TimeGenerated])
-          struct.time_written   = Time.at(buf[:TimeWritten])
-          struct.event_id       = buf[:EventIdentifier] & 0x0000FFFF
-          struct.event_type     = get_event_type(buf[:EventType])
+          struct.record_number  = record[:RecordNumber]
+          struct.time_generated = Time.at(record[:TimeGenerated])
+          struct.time_written   = Time.at(record[:TimeWritten])
+          struct.event_id       = record[:EventID] & 0x0000FFFF
+          struct.event_type     = get_event_type(record[:EventType])
           struct.user           = user
-          struct.category       = buf[:EventCategory]
-          struct.string_inserts = strings
-          struct.description 	  = desc
+          struct.category       = record[:EventCategory]
+          #struct.string_inserts = strings
+          #struct.description 	  = desc
 
           struct.freeze # This is read-only information
 
@@ -588,7 +590,6 @@ module Win32
           else
             array.push(struct)
           end
-=end
 
           if flags & EVENTLOG_BACKWARDS_READ > 0
             offset = record[:RecordNumber] - 1
@@ -787,20 +788,24 @@ module Win32
     # Private method that retrieves the user name based on data in the
     # EVENTLOGRECORD buffer.
     #
-    def get_user(buf)
-      return nil if buf[40,4].unpack('L')[0] <= 0 # UserSidLength
+    def get_user(rec)
+      return nil if rec[:UserSidLength] <= 0
 
-      name        = 0.chr * MAX_SIZE
-      name_size   = [name.size].pack('L')
-      domain      = 0.chr * MAX_SIZE
-      domain_size = [domain.size].pack('L')
-      snu         = 0.chr * 4
+      name   = FFI::MemoryPointer.new(:char, MAX_SIZE)
+      domain = FFI::MemoryPointer.new(:char, MAX_SIZE)
+      snu    = FFI::MemoryPointer.new(:int)
 
-      offset = buf[44,4].unpack('L')[0] # UserSidOffset
+      name_size   = FFI::MemoryPointer.new(:ulong)
+      domain_size = FFI::MemoryPointer.new(:ulong)
+
+      name_size.write_ulong(name.size)
+      domain_size.write_ulong(domain.size)
+
+      offset = rec[:UserSidOffset]
 
       val = LookupAccountSid(
         @server,
-        [buf].pack('P').unpack('L')[0] + offset,
+        rec.pointer + offset,
         name,
         name_size,
         domain,
@@ -809,7 +814,7 @@ module Win32
       )
 
       # Return nil if the lookup failed
-      return val ? name.nstrip : nil
+      return val ? name.read_string_to_null : nil
     end
 
     # Private method that converts a numeric event type into a human
