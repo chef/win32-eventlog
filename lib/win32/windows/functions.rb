@@ -8,6 +8,7 @@ module Windows
     typedef :uintptr_t, :handle
     typedef :uintptr_t, :hkey
     typedef :ulong, :dword
+    typedef :ushort, :word
 
     attach_function :BackupEventLog, :BackupEventLogA, [:handle, :string], :bool
     attach_function :ClearEventLog, :ClearEventLogA, [:handle, :string], :bool
@@ -22,7 +23,9 @@ module Windows
     attach_function :RegCloseKey, [:hkey], :long
     attach_function :RegConnectRegistry, :RegConnectRegistryA, [:string, :hkey, :pointer], :long
     attach_function :RegCreateKeyEx, :RegCreateKeyExA, [:hkey, :string, :dword, :string, :dword, :dword, :pointer, :pointer, :pointer], :long
+    attach_function :RegisterEventSource, :RegisterEventSourceA, [:string, :string], :handle
     attach_function :RegSetValueEx, :RegSetValueExA, [:hkey, :string, :dword, :dword, :pointer, :dword], :long
+    attach_function :ReportEvent, :ReportEventA, [:handle, :word, :word, :dword, :pointer, :word, :dword, :pointer, :pointer], :bool
 
     ffi_lib :kernel32
 
