@@ -156,15 +156,17 @@ module Win32
     # * parameter_message_file # File (dll) that contains values for variables in the event description.
     # * supported_types        # See the 'event types' constants
     #
-    # Of these keys, only +key_name+ is mandatory.  An ArgumentError is
-    # raised if you attempt to use an invalid key.  If +supported_types+
+    # Of these keys, only +key_name+ is mandatory. An ArgumentError is
+    # raised if you attempt to use an invalid key. If +supported_types+
     # is not specified then the following value is used:
     #
     # EventLog::ERROR_TYPE | EventLog::WARN_TYPE | EventLog::INFO_TYPE
     #
     # The +event_message_file+ and +category_message_file+ are typically,
-    # though not necessarily, the same file.  See the documentation on .mc files
+    # though not necessarily, the same file. See the documentation on .mc files
     # for more details.
+    #
+    # You will need administrative privileges to use this method.
     #
     def self.add_event_source(args)
       raise TypeError unless args.is_a?(Hash)
