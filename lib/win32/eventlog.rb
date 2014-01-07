@@ -850,10 +850,8 @@ module Win32
       va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
 
       begin
-        if defined? Wow64DisableWow64FsRedirection
-          old_wow_val = 0.chr * 4
-          Wow64DisableWow64FsRedirection(old_wow_val)
-        end
+        old_wow_val = FFI::MemoryPointer.new(:int)
+        Wow64DisableWow64FsRedirection(old_wow_val)
 
         param_exe = nil
         message_exe = nil
@@ -918,62 +916,67 @@ module Win32
             end
 
             value = 'EventMessageFile'
-            file  = 0.chr * MAX_SIZE
-            size  = [file.length].pack('L')
+            file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+            size  = FFI::MemoryPointer.new(:ulong)
+
+            size.write_ulong(file.size)
 
             if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
-              file = file.nstrip
-              exe  = 0.chr * MAX_SIZE
+              file = file.read_string_to_null
+              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
-              message_exe = exe.nstrip
+              message_exe = exe.read_string_to_null
             end
           end
 
           RegCloseKey(hkey)
-        elsif defined? EvtOpenPublisherMetadata # Vista or later
-          pubMetadata = EvtOpenPublisherMetadata(
-            0,
-            multi_to_wide(event_source),
-            0,
-            1024, # Default LCID
-            0
-          )
+        else
+          wevent_source = (event_source + 0.chr).encode('UTF-16LE')
 
-          if pubMetadata > 0
-            buf2 = 0.chr * 8192
-            val  = 0.chr*4
+          begin
+            pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, 0, 1024, 0)
 
-            EvtGetPublisherMetadataProperty(
-              pubMetadata,
-              2, # EvtPublisherMetadataParameterFilePath
-              0,
-              8192,
-              buf2,
-              val
-            )
+            if pubMetadata > 0
+              buf2 = FFI::MemoryPointer.new(:char, 8192)
+              val  = FFI::MemoryPointer.new(:ulong)
 
-            file = wide_to_multi(buf2[16..-1])
-            exe  = 0.chr * MAX_SIZE
-            ExpandEnvironmentStrings(file, exe, exe.size)
-            param_exe = exe.nstrip
+              bool = EvtGetPublisherMetadataProperty(
+                pubMetadata,
+                2, # EvtPublisherMetadataParameterFilePath
+                0,
+                buf2.size,
+                buf2,
+                val
+              )
 
-            buf2 = 0.chr * 8192
-            val = 0.chr*4
+              unless bool
+                raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
+              end
 
-            EvtGetPublisherMetadataProperty(
-              pubMetadata,
-              3, # EvtPublisherMetadataMessageFilePath
-              0,
-              8192,
-              buf2,
-              val
-            )
+              file = buf2.read_string_to_null[16..-1]
+              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+              ExpandEnvironmentStrings(file, exe, exe.size)
+              param_exe = exe.read_string_to_null
 
-            file = wide_to_multi(buf2[16..-1])
-            exe  = 0.chr * MAX_SIZE
-            ExpandEnvironmentStrings(file, exe, exe.size)
-            message_exe = exe.nstrip
-            EvtClose(pubMetadata)
+              buf2 = FFI::MemoryPointer.new(:char, 8192)
+              val  = FFI::MemoryPointer.new(:ulong)
+
+              EvtGetPublisherMetadataProperty(
+                pubMetadata,
+                3, # EvtPublisherMetadataMessageFilePath
+                0,
+                buf2.size,
+                buf2,
+                val
+              )
+
+              file = buf2.read_string_to_null[16..-1]
+              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
+              ExpandEnvironmentStrings(file, exe, exe.size)
+              message_exe = exe.read_string_to_null
+            ensure
+              EvtClose(pubMetadata)
+            end
           end
         end
 
@@ -1036,7 +1039,7 @@ module Win32
               DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
             )
 
-            event_id = rec[20,4].unpack('L')[0]
+            event_id = rec[:EventID]
 
             if hmodule != 0
               res = FormatMessage(
@@ -1121,9 +1124,7 @@ module Win32
           }
         end
       ensure
-        if defined? Wow64RevertWow64FsRedirection
-          Wow64RevertWow64FsRedirection(old_wow_val.unpack('L')[0])
-        end
+        Wow64RevertWow64FsRedirection(old_wow_val.read_ulong)
       end
 
       [va_list0, buf.nstrip]
