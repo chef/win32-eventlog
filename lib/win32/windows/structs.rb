@@ -17,6 +17,7 @@ module Windows
         :EventType, :word,
         :NumStrings, :word,
         :EventCategory, :word,
+        :ReservedFlags, :word,
         :ClosingRecordNumber, :dword,
         :StringOffset, :dword,
         :UserSidLength, :dword,
