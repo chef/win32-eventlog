@@ -34,7 +34,7 @@ module Windows
 
     attach_function :CreateEvent, :CreateEventA, [:pointer, :bool, :bool, :string], :handle
     attach_function :ExpandEnvironmentStrings, :ExpandEnvironmentStringsA, [:string, :pointer, :dword], :dword
-    attach_function :FormatMessage, :FormatMessageA, [:dword, :pointer, :dword, :dword, :pointer, :dword, :pointer], :dword
+    attach_function :FormatMessage, :FormatMessageA, [:dword, :uintptr_t, :dword, :dword, :pointer, :dword, :pointer], :dword
     attach_function :FreeLibrary, [:handle], :bool
     attach_function :LoadLibraryEx, :LoadLibraryExA, [:string, :handle, :dword], :handle
     attach_function :WaitForSingleObject, [:handle, :dword], :dword
