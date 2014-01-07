@@ -28,6 +28,8 @@ module Windows
     BUFFER_SIZE = 1024 * 64
     MAX_SIZE    = 256
     MAX_STRINGS = 16
+    INFINITE    = 0xFFFFFFFF
+    WAIT_FAILED = 0xFFFFFFFF
 
     BASE_KEY = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
 
