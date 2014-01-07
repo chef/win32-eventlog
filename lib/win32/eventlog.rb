@@ -102,10 +102,10 @@ module Win32
 
       if file.nil?
         function = 'OpenEventLog'
-        @handle = OpenEventLog(server, source)
+        @handle = OpenEventLog(@server, @source)
       else
         function = 'OpenBackupEventLog'
-        @handle = OpenBackupEventLog(server, file)
+        @handle = OpenBackupEventLog(@server, @file)
       end
 
       if @handle == 0
