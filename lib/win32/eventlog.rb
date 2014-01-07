@@ -604,7 +604,6 @@ module Win32
         end
 
         buf  = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
-        read = read.read_ulong
       end
 
       block_given? ? nil : array
@@ -935,7 +934,7 @@ module Win32
           wevent_source = (event_source + 0.chr).encode('UTF-16LE')
 
           begin
-            pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, 0, 1024, 0)
+            pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, nil, 1024, 0)
 
             if pubMetadata > 0
               buf2 = FFI::MemoryPointer.new(:char, 8192)
@@ -962,7 +961,7 @@ module Win32
               buf2 = FFI::MemoryPointer.new(:char, 8192)
               val  = FFI::MemoryPointer.new(:ulong)
 
-              EvtGetPublisherMetadataProperty(
+              bool = EvtGetPublisherMetadataProperty(
                 pubMetadata,
                 3, # EvtPublisherMetadataMessageFilePath
                 0,
@@ -971,13 +970,17 @@ module Win32
                 val
               )
 
+              unless bool
+                raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
+              end
+
               file = buf2.read_string[16..-1]
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
               message_exe = exe.read_string
             end
           ensure
-            EvtClose(pubMetadata)
+            EvtClose(pubMetadata) if pubMetadata
           end
         end
 
