@@ -435,7 +435,7 @@ module Win32
     #
     def notify_change(&block)
       unless block_given?
-        raise Error, 'block missing for notify_change()'
+        raise ArgumentError, 'block missing for notify_change'
       end
 
       # Reopen the handle because the NotifyChangeEventLog() function will
@@ -443,11 +443,10 @@ module Win32
       @handle = OpenEventLog(@server, @source)
 
       if @handle == 0
-        error = 'OpenEventLog() failed: ' + get_last_error
-        raise Error, error
+        raise SystemCallError.new('OpenEventLog', FFI.errno)
       end
 
-      event = CreateEvent(0, 0, 0, 0)
+      event = CreateEvent(nil, false, false, nil)
 
       unless NotifyChangeEventLog(@handle, event)
         raise SystemCallError.new('NotifyChangeEventLog', FFI.errno)
@@ -483,7 +482,7 @@ module Win32
     #
     def tail(frequency = 5)
       unless block_given?
-        raise Error, 'block missing for tail()'
+        raise ArgumentError, 'block missing for tail'
       end
 
       old_total = total_records()
@@ -623,7 +622,7 @@ module Win32
       }
     end
 
-    # Writes an event to the event log.  The following are valid keys:
+    # Writes an event to the event log. The following are valid keys:
     #
     # * source     # Event log source name. Defaults to "Application".
     # * event_id   # Event ID (defined in event message file).
@@ -668,7 +667,7 @@ module Win32
 
       # The event_type must be specified
       unless hash['event_type']
-        raise Error, 'no event_type specified'
+        raise ArgumentError, 'no event_type specified'
       end
 
       handle = RegisterEventSource(@server, hash['source'])
@@ -733,51 +732,53 @@ module Win32
     # A private method that reads the last event log record.
     #
     def read_last_event(handle=@handle, source=@source, server=@server)
-      buf    = 0.chr * BUFFER_SIZE # 64k buffer
-      read   = [0].pack('L')
-      needed = [0].pack('L')
+      buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+      read   = FFI::MemoryPointer.new(:ulong)
+      needed = FFI::MemoryPointer.new(:ulong)
       lkey   = HKEY_LOCAL_MACHINE
 
       flags = EVENTLOG_BACKWARDS_READ | EVENTLOG_SEQUENTIAL_READ
 
       unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
-        error = GetLastError()
-        if error == ERROR_INSUFFICIENT_BUFFER
-          buf = (0.chr * buf.size) + (0.chr * needed.unpack('L')[0])
+        if FFI.errno == ERROR_INSUFFICIENT_BUFFER
+          needed = needed.read_ulong / EVENTLOGRECORD.size
+          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
           unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
-            raise Error, get_last_error
+            raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
         else
-          raise Error, get_last_error(error)
+          raise SystemCallError.new('ReadEventLog', FFI.errno)
         end
       end
 
       if @server
-        hkey = [0].pack('L')
+        hkey = FFI::MemoryPointer.new(:uintptr_t)
         if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-          raise Error, get_last_error
+          raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.unpack('L').first
+        lkey = hkey.read_ulong_long
       end
 
-      event_source  = buf[56..-1].nstrip
-      computer      = buf[56 + event_source.length + 1..-1].nstrip
-      event_type    = get_event_type(buf[24,2].unpack('S')[0])
-      user          = get_user(buf)
+      record = EVENTLOGRECORD.new(buf)
+
+      event_source  = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
+      computer      = buf.read_bytes(buf.size)[56 + event_source.length + 1..-1][/^[^\0]*/]
+      event_type    = get_event_type(record[:EventType])
+      user          = get_user(record)
       strings, desc = get_description(buf, event_source, lkey)
 
       struct = EventLogStruct.new
       struct.source         = event_source
       struct.computer       = computer
-      struct.record_number  = buf[8,4].unpack('L')[0]
-      struct.time_generated = Time.at(buf[12,4].unpack('L')[0])
-      struct.time_written   = Time.at(buf[16,4].unpack('L')[0])
-      struct.event_id       = buf[20,4].unpack('L')[0] & 0x0000FFFF
+      struct.record_number  = record[:RecordNumber]
+      struct.time_generated = Time.at(record[:TimeGenerated])
+      struct.time_written   = Time.at(record[:TimeWritten])
+      struct.event_id       = record[:EventID] & 0x0000FFFF
       struct.event_type     = event_type
       struct.user           = user
-      struct.category       = buf[28,2].unpack('S')[0]
+      struct.category       = record[:EventCategory]
       struct.string_inserts = strings
-      struct.description 	 = desc
+      struct.description 	  = desc
 
       struct.freeze # This is read-only information
 
@@ -1141,25 +1142,5 @@ module Win32
 
       [va_list0, buf.read_string]
     end
-  end
-end
-
-if $0 == __FILE__
-  include Win32
-  begin
-    log = EventLog.new('Application')
-    log.read
-=begin
-    log.report_event(
-      :source => 'RubyMsg',
-      :event_id => 4,
-      :category => 2,
-      #:data => 'This is a test warning',
-      :data => ['First String', 'Second String'],
-      :event_type => EventLog::WARN_TYPE
-    )
-=end
-  ensure
-    log.close
   end
 end
