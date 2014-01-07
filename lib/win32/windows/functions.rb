@@ -34,7 +34,17 @@ module Windows
 
     attach_function :CreateEvent, :CreateEventA, [:pointer, :bool, :bool, :string], :handle
     attach_function :ExpandEnvironmentStrings, :ExpandEnvironmentStringsA, [:string, :pointer, :dword], :dword
+    attach_function :FormatMessage, :FormatMessageA, [:dword, :pointer, :dword, :dword, :pointer, :dword, :pointer], :dword
+    attach_function :FreeLibrary, [:handle], :bool
+    attach_function :LoadLibraryEx, :LoadLibraryExA, [:string, :handle, :dword], :handle
     attach_function :WaitForSingleObject, [:handle, :dword], :dword
     attach_function :Wow64DisableWow64FsRedirection, [:pointer], :bool
+    attach_function :Wow64RevertWow64FsRedirection, [:ulong], :bool
+
+    ffi_lib :wevtapi
+
+    attach_function :EvtClose, [:handle], :bool
+    attach_function :EvtOpenPublisherMetadata, [:handle, :buffer_in, :buffer_in, :dword, :dword], :handle
+    attach_function :EvtGetPublisherMetadataProperty, [:handle, :int, :dword, :dword, :pointer, :pointer], :bool
   end
 end
