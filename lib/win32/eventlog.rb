@@ -569,7 +569,7 @@ module Win32
           computer = buf.read_bytes(buf.size)[56 + event_source.length + 1..-1][/^[^\0]*/]
           user = get_user(record)
 
-          #strings, desc = get_description(buf, event_source, lkey)
+          strings, desc = get_description(buf, event_source, lkey)
 
           struct.source         = event_source
           struct.computer       = computer
@@ -580,8 +580,8 @@ module Win32
           struct.event_type     = get_event_type(record[:EventType])
           struct.user           = user
           struct.category       = record[:EventCategory]
-          #struct.string_inserts = strings
-          #struct.description 	  = desc
+          struct.string_inserts = strings
+          struct.description 	  = desc
 
           struct.freeze # This is read-only information
 
@@ -814,7 +814,7 @@ module Win32
       )
 
       # Return nil if the lookup failed
-      return val ? name.read_string_to_null : nil
+      return val ? name.read_string : nil
     end
 
     # Private method that converts a numeric event type into a human
@@ -841,8 +841,9 @@ module Win32
     # event description (String) based on data from the EVENTLOGRECORD
     # buffer.
     #
-    def get_description(rec, event_source, lkey)
-      str     = rec[rec[:StringOffset] .. -1]
+    def get_description(buf, event_source, lkey)
+      rec     = EVENTLOGRECORD.new(buf)
+      str     = buf.read_bytes(buf.size)[rec[:StringOffset] .. -1]
       num     = rec[:NumStrings]
       hkey    = FFI::MemoryPointer.new(:uintptr_t)
       key     = BASE_KEY + "#{@source}\\#{event_source}"
@@ -865,8 +866,8 @@ module Win32
 
           size.write_ulong(guid.size)
 
-          if RegQueryValueEx(hkey, value, 0, 0, guid, size) == 0
-            guid  = guid.read_string_to_null
+          if RegQueryValueEx(hkey, value, nil, nil, guid, size) == 0
+            guid  = guid.read_string
             hkey2 = FFI::MemoryPointer.new(:uintptr_t)
             key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
 
@@ -879,11 +880,11 @@ module Win32
 
               size.write_ulong(file.size)
 
-              if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
-                file = file.read_string_to_null
+              if RegQueryValueEx(hkey2, value, nil, nil, file, size) == 0
+                file = file.read_string
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
-                param_exe = exe.read_string_to_null
+                param_exe = exe.read_string
               end
 
               value = 'MessageFileName'
@@ -892,11 +893,11 @@ module Win32
 
               size.write_ulong(file.size)
 
-              if RegQueryValueEx(hkey2, value, 0, 0, file, size) == 0
-                file = file.read_string_to_null
+              if RegQueryValueEx(hkey2, value, nil, nil, file, size) == 0
+                file = file.read_string
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
-                message_exe = exe.read_string_to_null
+                message_exe = exe.read_string
               end
 
               RegCloseKey(hkey2)
@@ -908,11 +909,11 @@ module Win32
 
             size.write_ulong(file.size)
 
-            if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
-              file = file.read_string_to_null
+            if RegQueryValueEx(hkey, value, nil, nil, file, size) == 0
+              file = file.read_string
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
-              param_exe = exe.read_string_to_null
+              param_exe = exe.read_string
             end
 
             value = 'EventMessageFile'
@@ -921,11 +922,11 @@ module Win32
 
             size.write_ulong(file.size)
 
-            if RegQueryValueEx(hkey, value, 0, 0, file, size) == 0
-              file = file.read_string_to_null
+            if RegQueryValueEx(hkey, value, nil, nil, file, size) == 0
+              file = file.read_string
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
-              message_exe = exe.read_string_to_null
+              message_exe = exe.read_string
             end
           end
 
@@ -953,10 +954,10 @@ module Win32
                 raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
               end
 
-              file = buf2.read_string_to_null[16..-1]
+              file = buf2.read_string[16..-1]
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
-              param_exe = exe.read_string_to_null
+              param_exe = exe.read_string
 
               buf2 = FFI::MemoryPointer.new(:char, 8192)
               val  = FFI::MemoryPointer.new(:ulong)
@@ -970,13 +971,13 @@ module Win32
                 val
               )
 
-              file = buf2.read_string_to_null[16..-1]
+              file = buf2.read_string[16..-1]
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
-              message_exe = exe.read_string_to_null
-            ensure
-              EvtClose(pubMetadata)
+              message_exe = exe.read_string
             end
+          ensure
+            EvtClose(pubMetadata)
           end
         end
 
@@ -1029,7 +1030,7 @@ module Win32
         end
 
         if message_exe != nil
-          buf  = 0.chr * 8192 # Reset the buffer
+          buf  = FFI::MemoryPointer.new(:char, 8192) # Reset the buffer
 
           # Try to retrieve message *without* expanding the inserts yet
           message_exe.split(';').each{ |lfile|
@@ -1067,20 +1068,28 @@ module Win32
               end
 
               FreeLibrary(hmodule)
-              break if buf.nstrip != "" # All messages read
+              break if buf.read_string != "" # All messages read
             end
           }
 
           # Determine higest %n insert number
-          max_insert = [num, buf.nstrip.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
+          max_insert = [num, buf.read_string.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
 
           # Insert dummy strings not provided by caller
           ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
 
           if num == 0
-            va_list_ptr = 0.chr * 4
+            va_list_ptr = FFI::MemoryPointer.new(:pointer)
           else
-            va_list_ptr = va_list.map{ |x| [x + 0.chr].pack('P').unpack('L')[0] }.pack('L*')
+            strptrs = []
+            va_list.each{ |x| strptrs << FFI::MemoryPointer.from_string(x) }
+            strptrs << nil
+
+            va_list_ptr = FFI::MemoryPointer.new(:pointer, strptrs.size)
+
+            strptrs.each_with_index{ |p, i|
+              va_list_ptr[i].put_pointer(0, p)
+            }
           end
 
           message_exe.split(';').each{ |lfile|
@@ -1090,7 +1099,7 @@ module Win32
               DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
             )
 
-            event_id = rec[20,4].unpack('L')[0]
+            event_id = rec[:EventID]
 
             if hmodule != 0
               res = FormatMessage(
@@ -1119,7 +1128,7 @@ module Win32
               end
 
               FreeLibrary(hmodule)
-              break if buf.nstrip != "" # All messages read
+              break if buf.read_string != "" # All messages read
             end
           }
         end
@@ -1127,7 +1136,7 @@ module Win32
         Wow64RevertWow64FsRedirection(old_wow_val.read_ulong)
       end
 
-      [va_list0, buf.nstrip]
+      [va_list0, buf.read_string]
     end
   end
 end
