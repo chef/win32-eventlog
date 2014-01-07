@@ -32,6 +32,7 @@ module Windows
 
     ffi_lib :kernel32
 
+    attach_function :CloseHandle, [:handle], :bool
     attach_function :CreateEvent, :CreateEventA, [:pointer, :bool, :bool, :string], :handle
     attach_function :ExpandEnvironmentStrings, :ExpandEnvironmentStringsA, [:string, :pointer, :dword], :dword
     attach_function :FormatMessage, :FormatMessageA, [:dword, :uintptr_t, :dword, :dword, :pointer, :dword, :pointer], :dword
