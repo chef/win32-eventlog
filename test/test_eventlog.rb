@@ -95,7 +95,6 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_kind_of(EventLog, @log)
   end
 
-=begin
   test "it is possible to read and close the backup log file" do
     EventLog.new('Application', @@hostname){ |log| log.backup(@bakfile) }
     @log = EventLog.open_backup(@bakfile)
@@ -189,7 +188,6 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     EventLog.read{ |log| @entry = log; break }
     assert_true(@entry.frozen?)
   end
-=end
 
   test "server method basic functionality" do
     assert_respond_to(@log, :server)
@@ -253,14 +251,12 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_kind_of(Fixnum, @log.total_records)
   end
 
-=begin
-
   # We can't test that this method actually executes properly since it goes
   # into an endless loop.
   #
   test "tail basic functionality" do
     assert_respond_to(@log, :tail)
-    assert_raises(EventLog::Error){ @log.tail }
+    assert_raises(ArgumentError){ @log.tail }
   end
 
   # We can't test that this method actually executes properly since it goes
@@ -268,7 +264,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   #
   test "notify_change basic functionality" do
     assert_respond_to(@log, :notify_change)
-    assert_raises(EventLog::Error){ @log.notify_change }
+    assert_raises(ArgumentError){ @log.notify_change }
   end
 
   # I can't really do more in depth testing for this method since there
@@ -284,7 +280,6 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_alias_method(@log, :write, :report_event)
   end
 
-=end
   test "read event constants" do
     assert_not_nil(EventLog::FORWARDS_READ)
     assert_not_nil(EventLog::BACKWARDS_READ)
