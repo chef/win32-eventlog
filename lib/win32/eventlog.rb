@@ -224,7 +224,7 @@ module Win32
         raise SystemCallError.new('RegCreateKeyEx', rv)
       end
 
-      hkey = hkey.read_ulong_long
+      hkey = hkey.read_pointer.to_i
       data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
 
       begin
@@ -266,7 +266,7 @@ module Win32
           raise SystemCallError.new('RegCreateKeyEx', rv)
         end
 
-        hkey = hkey.read_ulong_long
+        hkey = hkey.read_pointer.to_i
 
         if hash['category_count']
           data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
@@ -544,7 +544,7 @@ module Win32
         if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.read_ulong_long
+        lkey = hkey.read_pointer.to_i
       end
 
       while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
@@ -756,7 +756,7 @@ module Win32
         if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.read_ulong_long
+        lkey = hkey.read_pointer.to_i
       end
 
       record = EVENTLOGRECORD.new(buf)
@@ -858,7 +858,7 @@ module Win32
         message_exe = nil
 
         if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
-          hkey  = hkey.read_ulong_long
+          hkey  = hkey.read_pointer.to_i
           value = 'providerGuid'
 
           guid  = FFI::MemoryPointer.new(:char, MAX_SIZE)
@@ -872,7 +872,7 @@ module Win32
             key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
 
             if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-              hkey2  = hkey2.read_ulong_long
+              hkey2  = hkey2.read_pointer.to_i
 
               value = 'ParameterMessageFile'
               file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
