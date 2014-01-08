@@ -3,11 +3,12 @@
   writing to the MS Windows Event Log.
 
   In addition, you can create your own message event sources using the
-  win32-mc library (provided with this distro), assuming you have the
+  Win32::MC class (provided with this distro), assuming you have the
   proper tools installed.
 
 == Prerequisites
-  windows-pr 0.9.3 or later.
+  * ffi
+  * Windows Vista or later
 
   The 'mc', 'rc' and 'link' command line tools are required to create and
   install message sources. You won't need these for simply reading from or
@@ -15,6 +16,14 @@
 
 == Installation
   gem install win32-eventlog
+
+== Synopsis
+  require 'win32/eventlog'
+  require 'win32/mc' # If you want to create message files.
+
+  Win32::EventLog.read('Application') do |log|
+    p log
+  end
 
 === General Installation Notes
   This will install both the win32-eventlog and win32-mc libraries. The latter
@@ -53,6 +62,7 @@
   None known.
 
   Please file any bug reports on the project page at
+  http://github.com/djberg96/win32-eventlog or
   http://www.rubyforge.org/projects/win32utils.
 
 == License

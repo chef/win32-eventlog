@@ -9,6 +9,9 @@
 * examples/example_notify.rb
 * lib/win32/eventlog.rb
 * lib/win32/mc.rb
+* lib/win32/windows/constants.rb
+* lib/win32/windows/functions.rb
+* lib/win32/windows/structs.rb
 * misc/install_msg.rb
 * misc/rubymsg.mc
 * test/foo.mc
