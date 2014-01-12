@@ -17,6 +17,7 @@ Gem::Specification.new do |spec|
   spec.add_dependency('ffi')
   spec.add_development_dependency('test-unit')
   spec.add_development_dependency('rake')
+  spec.add_development_dependency('ptools')
 
   spec.description = <<-EOF
     The win32-eventlog library provides an interface to the MS Windows event
