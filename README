@@ -59,7 +59,7 @@
   system.
 
 == Known Issues
-  None known.
+  JRuby users may need to increase their heap space.
 
   Please file any bug reports on the project page at
   http://github.com/djberg96/win32-eventlog or
