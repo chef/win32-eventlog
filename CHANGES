@@ -1,9 +1,10 @@
-== 0.6.0 - ???
+== 0.6.0 - 13-Jan-2014
 * Now assumes Windows Vista or later and Ruby 1.9.1 or later.
-* The code base has mostly been converted to FFI.
+* The code base has been converted to use FFI, and now works with JRuby.
 * The report_event method now accepts an array of strings.
 * The ERROR, WARN and INFO constants were changed to ERROR_TYPE, WARN_TYPE and
   INFO_TYPE.
+* The rake and ptools gems have been added as development dependencies.
 
 == 0.5.3 - 26-Oct-2011
 * Fixed the String#nstrip method for Ruby 1.9.x. Thanks go to Jason Bourne
