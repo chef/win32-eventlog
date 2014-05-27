@@ -224,7 +224,7 @@ module Win32
         raise SystemCallError.new('RegCreateKeyEx', rv)
       end
 
-      hkey = hkey.address
+      hkey = hkey.read_pointer.to_i
       data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
 
       begin
@@ -266,7 +266,7 @@ module Win32
           raise SystemCallError.new('RegCreateKeyEx', rv)
         end
 
-        hkey = hkey.address
+        hkey = hkey.read_pointer.to_i
 
         if hash['category_count']
           data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
@@ -575,7 +575,7 @@ module Win32
           struct.user           = get_user(record)
           struct.category       = record[:EventCategory]
           struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
-          struct.data           = rec[:DataLength] <= 0 ? nil : buf.read_bytes(buf.size)[rec[:DataOffset], rec[:DataLength]]
+          struct.data           = record[:DataLength] <= 0 ? nil : (buf.read_string(buf.size)[record[:DataOffset], record[:DataLength]]).force_encoding('iso-8859-1')
 
           struct.freeze # This is read-only information
 
@@ -768,7 +768,7 @@ module Win32
       struct.user           = get_user(record)
       struct.category       = record[:EventCategory]
       struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
-      struct.data           = rec[:DataLength] <= 0 ? nil : buf.read_bytes(buf.size)[rec[:DataOffset], rec[:DataLength]]
+      struct.data           = record[:DataLength] <= 0 ? nil : (buf.read_string(buf.size)[record[:DataOffset], record[:DataLength]]).force_encoding('iso-8859-1')
 
       struct.freeze # This is read-only information
 
@@ -848,7 +848,7 @@ module Win32
         message_exe = nil
 
         if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
-          hkey  = hkey.address
+          hkey  = hkey.read_pointer.to_i
           value = 'providerGuid'
 
           guid  = FFI::MemoryPointer.new(:char, MAX_SIZE)
@@ -862,7 +862,7 @@ module Win32
             key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
 
             if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-              hkey2  = hkey2.address
+              hkey2  = hkey2.read_pointer.to_i
 
               value = 'ParameterMessageFile'
               file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
