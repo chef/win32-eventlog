@@ -224,7 +224,7 @@ module Win32
         raise SystemCallError.new('RegCreateKeyEx', rv)
       end
 
-      hkey = hkey.read_pointer.to_i
+      hkey = hkey.address
       data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
 
       begin
@@ -266,7 +266,7 @@ module Win32
           raise SystemCallError.new('RegCreateKeyEx', rv)
         end
 
-        hkey = hkey.read_pointer.to_i
+        hkey = hkey.address
 
         if hash['category_count']
           data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
@@ -858,7 +858,7 @@ module Win32
         message_exe = nil
 
         if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
-          hkey  = hkey.read_pointer.to_i
+          hkey  = hkey.address
           value = 'providerGuid'
 
           guid  = FFI::MemoryPointer.new(:char, MAX_SIZE)
@@ -872,7 +872,7 @@ module Win32
             key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
 
             if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-              hkey2  = hkey2.read_pointer.to_i
+              hkey2  = hkey2.address
 
               value = 'ParameterMessageFile'
               file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
