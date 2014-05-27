@@ -727,11 +727,12 @@ module Win32
 
     alias :write :report_event
 
-    private
-
-    # A private method that reads the last event log record.
+    # A method that reads the last event log record.
     #
-    def read_last_event(handle=@handle, source=@source, server=@server)
+    def read_last_event()
+      handle=@handle
+      source=@source
+      server=@server
       buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
       read   = FFI::MemoryPointer.new(:ulong)
       needed = FFI::MemoryPointer.new(:ulong)
