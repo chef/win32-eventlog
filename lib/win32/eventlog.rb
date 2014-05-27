@@ -63,7 +63,7 @@ module Win32
     # The EventLogStruct encapsulates a single event log record.
     EventLogStruct = Struct.new('EventLogStruct', :record_number,
       :time_generated, :time_written, :event_id, :event_type, :category,
-      :source, :computer, :user, :string_inserts, :description
+      :source, :computer, :user, :string_inserts, :description, :data
     )
 
     # The name of the event log source.  This will typically be
@@ -525,6 +525,7 @@ module Win32
     # * user           # String or nil
     # * description    # String or nil
     # * string_inserts # An array of Strings or nil
+    # * data           # binary data or nil
     #
     # If no block is given the method returns an array of EventLogStruct's.
     #
@@ -574,6 +575,7 @@ module Win32
           struct.user           = get_user(record)
           struct.category       = record[:EventCategory]
           struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
+          struct.data           = rec[:DataLength] <= 0 ? nil : buf.read_bytes(buf.size)[rec[:DataOffset], rec[:DataLength]]
 
           struct.freeze # This is read-only information
 
@@ -766,6 +768,7 @@ module Win32
       struct.user           = get_user(record)
       struct.category       = record[:EventCategory]
       struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
+      struct.data           = rec[:DataLength] <= 0 ? nil : buf.read_bytes(buf.size)[rec[:DataOffset], rec[:DataLength]]
 
       struct.freeze # This is read-only information
 
@@ -831,7 +834,6 @@ module Win32
     def get_description(buf, event_source, lkey)
       rec     = EVENTLOGRECORD.new(buf)
       str     = rec[:DataLength] > 0 ? buf.read_bytes(rec[:DataOffset] - 1)[rec[:StringOffset] .. -1] : buf.read_bytes(buf.size)[rec[:StringOffset] .. -1]
-      str     = buf.read_bytes(buf.size)[rec[:StringOffset] .. -1]
       num     = rec[:NumStrings]
       hkey    = FFI::MemoryPointer.new(:uintptr_t)
       key     = BASE_KEY + "#{@source}\\#{event_source}"
