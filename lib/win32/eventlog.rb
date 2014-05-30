@@ -1,6 +1,6 @@
-require File.join(File.dirname(__FILE__), 'windows', 'constants')
-require File.join(File.dirname(__FILE__), 'windows', 'structs')
-require File.join(File.dirname(__FILE__), 'windows', 'functions')
+require_relative 'windows/constants'
+require_relative 'windows/structs'
+require_relative 'windows/functions'
 
 # The Win32 module serves as a namespace only.
 module Win32
@@ -18,7 +18,7 @@ module Win32
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.0'
+    VERSION = '0.6.1'
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ
@@ -727,11 +727,9 @@ module Win32
 
     alias :write :report_event
 
-    private
-
-    # A private method that reads the last event log record.
+    # Reads the last event record.
     #
-    def read_last_event(handle=@handle, source=@source, server=@server)
+    def read_last_event
       buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
       read   = FFI::MemoryPointer.new(:ulong)
       needed = FFI::MemoryPointer.new(:ulong)
@@ -784,6 +782,8 @@ module Win32
 
       struct
     end
+
+    private
 
     # Private method that retrieves the user name based on data in the
     # EVENTLOGRECORD buffer.
