@@ -564,23 +564,16 @@ module Win32
           struct = EventLogStruct.new
           record = EVENTLOGRECORD.new(buf)
 
-          event_source = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-          computer = buf.read_bytes(buf.size)[56 + event_source.length + 1..-1][/^[^\0]*/]
-          user = get_user(record)
-
-          strings, desc = get_description(buf, event_source, lkey)
-
-          struct.source         = event_source
-          struct.computer       = computer
+          struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
+          struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
           struct.record_number  = record[:RecordNumber]
           struct.time_generated = Time.at(record[:TimeGenerated])
           struct.time_written   = Time.at(record[:TimeWritten])
           struct.event_id       = record[:EventID] & 0x0000FFFF
           struct.event_type     = get_event_type(record[:EventType])
-          struct.user           = user
+          struct.user           = get_user(record)
           struct.category       = record[:EventCategory]
-          struct.string_inserts = strings
-          struct.description 	  = desc
+          struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
 
           struct.freeze # This is read-only information
 
@@ -759,24 +752,17 @@ module Win32
 
       record = EVENTLOGRECORD.new(buf)
 
-      event_source  = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-      computer      = buf.read_bytes(buf.size)[56 + event_source.length + 1..-1][/^[^\0]*/]
-      event_type    = get_event_type(record[:EventType])
-      user          = get_user(record)
-      strings, desc = get_description(buf, event_source, lkey)
-
       struct = EventLogStruct.new
-      struct.source         = event_source
-      struct.computer       = computer
+      struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
+      struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
       struct.record_number  = record[:RecordNumber]
       struct.time_generated = Time.at(record[:TimeGenerated])
       struct.time_written   = Time.at(record[:TimeWritten])
       struct.event_id       = record[:EventID] & 0x0000FFFF
-      struct.event_type     = event_type
-      struct.user           = user
+      struct.event_type     = get_event_type(record[:EventType])
+      struct.user           = get_user(record)
       struct.category       = record[:EventCategory]
-      struct.string_inserts = strings
-      struct.description 	  = desc
+      struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
 
       struct.freeze # This is read-only information
 
