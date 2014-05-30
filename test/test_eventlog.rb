@@ -77,7 +77,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "backup works as expected" do
     assert_nothing_raised{ @log.backup(@bakfile) }
-    assert(File.exists?(@bakfile))
+    assert(File.exist?(@bakfile))
   end
 
   test "backup method fails if backup file already exists" do
@@ -298,7 +298,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   def teardown
     @log.close rescue nil
-    File.delete(@bakfile) if File.exists?(@bakfile)
+    File.delete(@bakfile) if File.exist?(@bakfile)
     @logfile  = nil
     @records  = nil
     @last     = nil

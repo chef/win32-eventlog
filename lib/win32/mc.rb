@@ -57,7 +57,7 @@ module Win32
     #
     def create_res_file
       rc_file = File.basename(@mc_file, '.mc') + '.rc'
-      unless File.exists?(rc_file)
+      unless File.exist?(rc_file)
         raise MC::Error, "No .rc file found: #{@rc_file}"
       end
       system("rc -r -fo #{@res_file} #{rc_file}")
@@ -68,7 +68,7 @@ module Win32
     # found.
     #
     def create_dll_file
-      unless File.exists?(@res_file)
+      unless File.exist?(@res_file)
         raise MC::Error, "No .res file found: #{@res_file}"
       end
       system("link -dll -noentry -out:#{@dll_file} #{@res_file}")
@@ -92,7 +92,7 @@ module Win32
 
       %w[.h .rc .res].each do |ext|
         file = base + ext
-        File.delete(file) if File.exists?(file)
+        File.delete(file) if File.exist?(file)
       end
 
       Dir["MSG*.bin"].each do |binfile|
