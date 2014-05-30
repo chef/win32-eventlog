@@ -1,3 +1,9 @@
+== 0.6.1 - ???
+* Added the read_last_event instance method. This was already in the code as
+  as a private method but it is now public.
+* Removed some intermediate variables in the name of efficiency.
+* Changed File.exists? to File.exist? everywhere to avoid warnings in Ruby 2.1.
+
 == 0.6.0 - 13-Jan-2014
 * Now assumes Windows Vista or later and Ruby 1.9.1 or later.
 * The code base has been converted to use FFI, and now works with JRuby.
