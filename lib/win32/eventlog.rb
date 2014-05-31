@@ -854,19 +854,21 @@ module Win32
 
         param_exe = nil
         message_exe = nil
-        hkey = Win32::Registry.open(lkey, key) rescue nil
+
+        # Todo: find a way to use lkey (for remote server)
+        hkey = Win32::Registry::HKEY_LOCAL_MACHINE.open(key) rescue nil
         if hkey != nil
-          guid = hkey["providerGuid"]
+          guid = hkey["providerGuid"] rescue nil
           if guid != nil
-            key  = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
-            param_file = Win32::Registry.open(lkey, key)["ParameterMessageFile"] rescue nil
-            message_file = Win32::Registry.open(lkey, key)["MessageFileName"] rescue nil
+            key2  = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
+            param_file = Win32::Registry::HKEY_LOCAL_MACHINE.open(key2)["ParameterMessageFile"] rescue nil
+            message_file = Win32::Registry::HKEY_LOCAL_MACHINE.open(key2)["MessageFileName"] rescue nil
 
             param_exe = param_file == nil ? nil : Win32::Registry.expand_environ(param_file)
             message_exe = message_file == nil ? nil : Win32::Registry.expand_environ(message_file)
           else
-            param_file = Win32::Registry.open(lkey, key)["ParameterMessageFile"] rescue nil
-            message_file = Win32::Registry.open(lkey, key)["EventMessageFile"] rescue nil
+            param_file = Win32::Registry::HKEY_LOCAL_MACHINE.open(key2)["ParameterMessageFile"] rescue nil
+            message_file = Win32::Registry::HKEY_LOCAL_MACHINE.open(key2)["EventMessageFile"] rescue nil
 
             param_exe = param_file == nil ? nil : Win32::Registry.expand_environ(param_file)
             message_exe = message_file == nil ? nil : Win32::Registry.expand_environ(message_file)
