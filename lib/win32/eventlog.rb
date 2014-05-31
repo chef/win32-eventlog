@@ -847,73 +847,75 @@ module Win32
           hkey  = hkey.read_pointer.to_i
           value = 'providerGuid'
 
-          guid  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-          size  = FFI::MemoryPointer.new(:ulong)
+          guid_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
+          size_ptr = FFI::MemoryPointer.new(:ulong)
 
-          size.write_ulong(guid.size)
+          size_ptr.write_ulong(guid_ptr.size)
 
-          if RegQueryValueEx(hkey, value, nil, nil, guid, size) == 0
-            guid  = guid.read_string
+          if RegQueryValueEx(hkey, value, nil, nil, guid_ptr, size_ptr) == 0
+            guid  = guid_ptr.read_string
             hkey2 = FFI::MemoryPointer.new(:uintptr_t)
             key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
+
+            guid_ptr.free
 
             if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
               hkey2  = hkey2.read_pointer.to_i
 
               value = 'ParameterMessageFile'
-              file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              size  = FFI::MemoryPointer.new(:ulong)
+              file_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
+              size_ptr.clear.write_ulong(file_ptr.size)
 
-              size.write_ulong(file.size)
-
-              if RegQueryValueEx(hkey2, value, nil, nil, file, size) == 0
-                file = file.read_string
+              if RegQueryValueEx(hkey2, value, nil, nil, file_ptr, size_ptr) == 0
+                file = file_ptr.read_string
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
                 param_exe = exe.read_string
               end
 
               value = 'MessageFileName'
-              file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              size  = FFI::MemoryPointer.new(:ulong)
 
-              size.write_ulong(file.size)
+              file_ptr.clear
+              size_ptr.clear.write_ulong(file_ptr.size)
 
-              if RegQueryValueEx(hkey2, value, nil, nil, file, size) == 0
-                file = file.read_string
+              if RegQueryValueEx(hkey2, value, nil, nil, file_ptr, size_ptr) == 0
+                file = file_ptr.read_string
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
                 message_exe = exe.read_string
               end
 
               RegCloseKey(hkey2)
+
+              file_ptr.free
+              size_ptr.free
             end
           else
             value = 'ParameterMessageFile'
-            file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-            size  = FFI::MemoryPointer.new(:ulong)
+            file_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
+            size_ptr.clear.write_ulong(file_ptr.size)
 
-            size.write_ulong(file.size)
-
-            if RegQueryValueEx(hkey, value, nil, nil, file, size) == 0
-              file = file.read_string
+            if RegQueryValueEx(hkey, value, nil, nil, file_ptr, size_ptr) == 0
+              file = file_ptr.read_string
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
               param_exe = exe.read_string
             end
 
             value = 'EventMessageFile'
-            file  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-            size  = FFI::MemoryPointer.new(:ulong)
 
-            size.write_ulong(file.size)
+            file_ptr.clear
+            size_ptr.clear.write_ulong(file_ptr.size)
 
-            if RegQueryValueEx(hkey, value, nil, nil, file, size) == 0
-              file = file.read_string
+            if RegQueryValueEx(hkey, value, nil, nil, file_ptr, size_ptr) == 0
+              file = file_ptr.read_string
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
               message_exe = exe.read_string
             end
+
+            file_ptr.free
+            size_ptr.free
           end
 
           RegCloseKey(hkey)
@@ -945,8 +947,8 @@ module Win32
               ExpandEnvironmentStrings(file, exe, exe.size)
               param_exe = exe.read_string
 
-              buf2 = FFI::MemoryPointer.new(:char, 8192)
-              val  = FFI::MemoryPointer.new(:ulong)
+              buf2.clear
+              val.clear
 
               bool = EvtGetPublisherMetadataProperty(
                 pubMetadata,
@@ -961,10 +963,15 @@ module Win32
                 raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
               end
 
+              exe.clear
+
               file = buf2.read_string[16..-1]
-              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
               message_exe = exe.read_string
+
+              buf2.free
+              val.free
+              exe.free
             end
           ensure
             EvtClose(pubMetadata) if pubMetadata
@@ -1020,7 +1027,7 @@ module Win32
         end
 
         if message_exe != nil
-          buf  = FFI::MemoryPointer.new(:char, 8192) # Reset the buffer
+          buf.clear
 
           # Try to retrieve message *without* expanding the inserts yet
           message_exe.split(';').each{ |lfile|
