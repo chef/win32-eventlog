@@ -557,9 +557,7 @@ module Win32
 
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
           needed = needed.read_ulong / EVENTLOGRECORD.size
-          bufKeeper.free
-          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
-          bufKeeper = buf
+          buf = bufKeeper
           unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
             raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
