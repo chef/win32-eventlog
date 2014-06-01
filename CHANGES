@@ -1,4 +1,4 @@
-== 0.6.1 - ???
+== 0.6.1 - 1-Jun-2014
 * Added the read_last_event instance method. This was already in the code as
   as a private method but it is now public.
 * Removed some intermediate variables and properly re-use some memory pointers
