@@ -59,11 +59,12 @@
   system.
 
 == Known Issues
-  JRuby users may need to increase their heap space.
+  * JRuby users may need to increase their heap space.
+  * JRuby x64 suffers from a bug that currently makes this library unusable.
+    See https://github.com/jruby/jruby/issues/1718.
 
   Please file any bug reports on the project page at
-  http://github.com/djberg96/win32-eventlog or
-  http://www.rubyforge.org/projects/win32utils.
+  http://github.com/djberg96/win32-eventlog.
 
 == License
   Artistic 2.0
