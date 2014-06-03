@@ -865,8 +865,8 @@ module Win32
             param_exe = param_file == nil ? nil : Win32::Registry.expand_environ(param_file)
             message_exe = message_file == nil ? nil : Win32::Registry.expand_environ(message_file)
           else
-            param_file = Win32::Registry::HKEY_LOCAL_MACHINE.open(key2)["ParameterMessageFile"] rescue nil
-            message_file = Win32::Registry::HKEY_LOCAL_MACHINE.open(key2)["EventMessageFile"] rescue nil
+            param_file = hkey["ParameterMessageFile"] rescue nil
+            message_file = hkey["EventMessageFile"] rescue nil
 
             param_exe = param_file == nil ? nil : Win32::Registry.expand_environ(param_file)
             message_exe = message_file == nil ? nil : Win32::Registry.expand_environ(message_file)
