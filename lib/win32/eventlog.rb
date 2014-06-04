@@ -530,6 +530,7 @@ module Win32
     #
     def read(flags = nil, offset = 0)
       buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+      bufKeeper = buf
       read   = FFI::MemoryPointer.new(:ulong)
       needed = FFI::MemoryPointer.new(:ulong)
       array  = []
@@ -551,8 +552,11 @@ module Win32
         FFI.errno == ERROR_INSUFFICIENT_BUFFER
 
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
-          needed = needed.read_ulong / EVENTLOGRECORD.size
-          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
+          buf.free
+          bufKeeper = nil
+          buf = nil
+          buf = FFI::MemoryPointer.new(:char, needed.read_ulong)
+          bufKeeper = buf
           unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
             raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
@@ -595,9 +599,17 @@ module Win32
           buf += length
         end
 
-        buf  = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
-      end
+        buf = bufKeeper
+        buf.clear
+    end
 
+      needed.free
+      needed = nil
+      read.free
+      read = nil
+      bufKeeper = nil
+      buf.free
+      buf = nil
       block_given? ? nil : array
     end
 
@@ -732,8 +744,9 @@ module Win32
 
       unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
-          needed = needed.read_ulong / EVENTLOGRECORD.size
-          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
+          buf.free
+          buf = nil
+          buf = FFI::MemoryPointer.new(:char, needed.read_ulong)
           unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
             raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
@@ -765,6 +778,13 @@ module Win32
       struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
 
       struct.freeze # This is read-only information
+
+      needed.free
+      needed = nil
+      read.free
+      read = nil
+      buf.free
+      buf = nil
 
       struct
     end
@@ -871,6 +891,7 @@ module Win32
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
                 param_exe = exe.read_string
+                exe.free
               end
 
               value = 'MessageFileName'
@@ -883,6 +904,7 @@ module Win32
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
                 ExpandEnvironmentStrings(file, exe, exe.size)
                 message_exe = exe.read_string
+                exe.free
               end
 
               RegCloseKey(hkey2)
@@ -900,6 +922,7 @@ module Win32
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
               param_exe = exe.read_string
+              exe.free
             end
 
             value = 'EventMessageFile'
@@ -912,6 +935,7 @@ module Win32
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
               ExpandEnvironmentStrings(file, exe, exe.size)
               message_exe = exe.read_string
+              exe.free
             end
 
             file_ptr.free
@@ -984,6 +1008,11 @@ module Win32
 
             v.scan(/%%(\d+)/).uniq.each{ |x|
               param_exe.split(';').each{ |lfile|
+                if lfile.to_s.strip.length == 0
+                  next
+                end
+                #To fix "string contains null byte" on some registry entry (corrupted?)
+                lfile.gsub!(/\0/, '')
                 hmodule  = LoadLibraryEx(
                   lfile,
                   0,
@@ -991,6 +1020,7 @@ module Win32
                 )
 
                 if hmodule != 0
+                  buf.clear
                   res = FormatMessage(
                     FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
                     hmodule,
@@ -1002,7 +1032,8 @@ module Win32
                   )
 
                   if res == 0
-                    event_id = 0xB0000000 | event_id
+                    event_id = 0xB0000000 | x.first.to_i
+                    buf.clear
                     res = FormatMessage(
                       FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
                       hmodule,
@@ -1015,11 +1046,11 @@ module Win32
                   end
 
                   FreeLibrary(hmodule)
-                  break if buf.nstrip != ""
+                  break if buf.read_string.gsub(/\n+/, '') != ""
                 end
               }
 
-              va = va.gsub("%%#{x.first}", buf.nstrip)
+              va = va.gsub("%%#{x.first}", buf.read_string.gsub(/\n+/, ''))
             }
 
             va
@@ -1031,6 +1062,11 @@ module Win32
 
           # Try to retrieve message *without* expanding the inserts yet
           message_exe.split(';').each{ |lfile|
+            if lfile.to_s.strip.length == 0
+              next
+            end
+            #To fix "string contains null byte" on some registry entry (corrupted?)
+            lfile.gsub!(/\0/, '')
             hmodule = LoadLibraryEx(
               lfile,
               0,
@@ -1040,6 +1076,7 @@ module Win32
             event_id = rec[:EventID]
 
             if hmodule != 0
+              buf.clear
               res = FormatMessage(
                 FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
                 hmodule,
@@ -1052,7 +1089,7 @@ module Win32
 
               if res == 0
                 event_id = 0xB0000000 | event_id
-
+                buf.clear
                 res = FormatMessage(
                   FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
                   hmodule,
@@ -1070,15 +1107,16 @@ module Win32
           }
 
           # Determine higest %n insert number
-          max_insert = [num, buf.read_string.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
+          # Remove %% to fix: The %1 '%2' preference item in the '%3' Group Policy Object did not apply because it failed with error code '%4'%%100790273
+          max_insert = [num, buf.read_string.gsub(/%%/, '').scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
 
           # Insert dummy strings not provided by caller
           ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
 
+          strptrs = []
           if num == 0
-            va_list_ptr = FFI::MemoryPointer.new(:pointer)
+            va_list_ptr = nil
           else
-            strptrs = []
             va_list.each{ |x| strptrs << FFI::MemoryPointer.from_string(x) }
             strptrs << nil
 
@@ -1090,6 +1128,11 @@ module Win32
           end
 
           message_exe.split(';').each{ |lfile|
+            if lfile.to_s.strip.length == 0
+              next
+            end
+            #To fix "string contains null byte" on some registry entry (corrupted?)
+            lfile.gsub!(/\0/, '')
             hmodule = LoadLibraryEx(
               lfile,
               0,
@@ -1099,6 +1142,7 @@ module Win32
             event_id = rec[:EventID]
 
             if hmodule != 0
+              buf.clear
               res = FormatMessage(
                 FORMAT_MESSAGE_FROM_HMODULE |
                 FORMAT_MESSAGE_ARGUMENT_ARRAY,
@@ -1112,7 +1156,7 @@ module Win32
 
               if res == 0
                 event_id = 0xB0000000 | event_id
-
+                buf.clear
                 res = FormatMessage(
                   FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
                   hmodule,
@@ -1128,12 +1172,24 @@ module Win32
               break if buf.read_string != "" # All messages read
             end
           }
+          if num != 0
+            strptrs.each_with_index{ |p, i|
+              unless p.nil?
+                p.free
+              end
+            }
+            va_list_ptr.free
+            va_list_ptr = nil
+          end
         end
       ensure
         Wow64RevertWow64FsRedirection(old_wow_val.read_ulong)
+        old_wow_val.free
       end
 
-      [va_list0, buf.read_string]
+      resultstr = buf.read_string
+      buf.free
+      [va_list0, resultstr]
     end
   end
 end
