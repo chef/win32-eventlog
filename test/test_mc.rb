@@ -53,7 +53,7 @@ class TC_Win32_MC < Test::Unit::TestCase
 
   def teardown
     @mc = nil
-    File.delete('foo.dll') if File.exists?('foo.dll')
+    File.delete('foo.dll') if File.exist?('foo.dll')
   end
 
   def self.shutdown

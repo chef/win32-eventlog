@@ -25,7 +25,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "version constant is set to expected value" do
-    assert_equal('0.6.0', EventLog::VERSION)
+    assert_equal('0.6.1', EventLog::VERSION)
   end
 
   test "constructor basic functionality" do
@@ -77,7 +77,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "backup works as expected" do
     assert_nothing_raised{ @log.backup(@bakfile) }
-    assert(File.exists?(@bakfile))
+    assert(File.exist?(@bakfile))
   end
 
   test "backup method fails if backup file already exists" do
@@ -165,6 +165,15 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "instance method read accepts a maximum of two arguments" do
     assert_raises(ArgumentError){ @log.read(nil, 500, 'foo') }
+  end
+
+  test "read_last_event method basic functionality" do
+    assert_respond_to(@log, :read_last_event)
+    assert_nothing_raised{ @log.read_last_event }
+  end
+
+  test "read_last_event returns the expected results" do
+    assert_kind_of(Win32::EventLog::EventLogStruct, @log.read_last_event)
   end
 
   test "seek_read flag plus forwards_read flag works as expected" do
@@ -298,7 +307,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   def teardown
     @log.close rescue nil
-    File.delete(@bakfile) if File.exists?(@bakfile)
+    File.delete(@bakfile) if File.exist?(@bakfile)
     @logfile  = nil
     @records  = nil
     @last     = nil
