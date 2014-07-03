@@ -42,10 +42,14 @@ module Windows
     attach_function :Wow64DisableWow64FsRedirection, [:pointer], :bool
     attach_function :Wow64RevertWow64FsRedirection, [:ulong], :bool
 
-    ffi_lib :wevtapi
+    begin
+      ffi_lib :wevtapi
 
-    attach_function :EvtClose, [:handle], :bool
-    attach_function :EvtOpenPublisherMetadata, [:handle, :buffer_in, :buffer_in, :dword, :dword], :handle
-    attach_function :EvtGetPublisherMetadataProperty, [:handle, :int, :dword, :dword, :pointer, :pointer], :bool
+      attach_function :EvtClose, [:handle], :bool
+      attach_function :EvtOpenPublisherMetadata, [:handle, :buffer_in, :buffer_in, :dword, :dword], :handle
+      attach_function :EvtGetPublisherMetadataProperty, [:handle, :int, :dword, :dword, :pointer, :pointer], :bool
+    rescue LoadError
+      # 2003
+    end
   end
 end
