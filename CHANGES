@@ -1,3 +1,7 @@
+== 0.6.2 - 6-Oct-2014
+* Now rescues LoadError if the wevtapi lib cannot be found. Thanks go to
+  Josh Cooper for the patch.
+
 == 0.6.1 - 1-Jun-2014
 * Added the read_last_event instance method. This was already in the code as
   as a private method but it is now public.
