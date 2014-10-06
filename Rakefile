@@ -20,7 +20,7 @@ namespace :gem do
   task :install => [:create] do
     ruby 'win32-eventlog.gemspec'
     file = Dir["*.gem"].first
-    sh "gem install #{file}"
+    sh "gem install -l #{file}"
   end
 end
 
