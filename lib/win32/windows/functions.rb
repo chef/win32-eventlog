@@ -5,7 +5,13 @@ module Windows
     extend FFI::Library
     ffi_lib :advapi32
 
-    typedef :uintptr_t, :handle
+    # https://github.com/jruby/jruby/issues/2293
+    if RUBY_PLATFORM == 'java' && ENV_JAVA['sun.arch.data.model'] == '64'
+      typedef :ulong_long, :handle
+    else
+      typedef :uintptr_t, :handle
+    end
+
     typedef :uintptr_t, :hkey
     typedef :ulong, :dword
     typedef :ushort, :word
