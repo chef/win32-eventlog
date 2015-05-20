@@ -18,7 +18,7 @@ module Win32
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.2'
+    VERSION = '0.6.3'
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ
