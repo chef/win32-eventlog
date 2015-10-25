@@ -7,10 +7,10 @@ CLEAN.include('**/*.gem', '**/*.rbc')
 namespace :gem do
   desc 'Create the win32-eventlog gem'
   task :create => [:clean] do
-    Gem::Package.build(spec)
+    require 'rubygems/package'
     spec = eval(IO.read('win32-eventlog.gemspec'))
     spec.signing_key = File.join(Dir.home, '.ssh', 'gem-private_key.pem')
-    require 'rubygems/package'
+    Gem::Package.build(spec)
   end
 
   desc 'Install the win32-eventlog gem'
