@@ -2,6 +2,7 @@
 * Fixed function prototype and call for CreateEvent.
 * This gem is now signed.
 * Any gem related tasks in the Rakefile now assume Rubygems 2.x.
+* Added a win32-eventlog.rb file for convenience.
 
 == 0.6.3 - 20-May-2015
 * Added a workaround for a bug in 64-bit JRuby.
