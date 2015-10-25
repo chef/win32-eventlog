@@ -2,7 +2,7 @@ require 'rubygems'
 
 Gem::Specification.new do |spec|
   spec.name       = 'win32-eventlog'
-  spec.version    = '0.6.3'
+  spec.version    = '0.6.4'
   spec.authors    = ['Daniel J. Berger', 'Park Heesob']
   spec.license    = 'Artistic 2.0'
   spec.email      = 'djberg96@gmail.com'
@@ -10,8 +10,8 @@ Gem::Specification.new do |spec|
   spec.summary    = 'Interface for the MS Windows Event Log.'
   spec.test_files = Dir['test/*.rb']
   spec.files      = Dir['**/*'].reject{ |f| f.include?('git') }
+  spec.cert_chain = ['certs/djberg96_pub.pem']
 
-  spec.rubyforge_project = 'win32utils'
   spec.extra_rdoc_files  = ['README', 'CHANGES', 'MANIFEST', 'doc/tutorial.txt']
 
   spec.add_dependency('ffi')
