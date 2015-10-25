@@ -18,7 +18,7 @@ module Win32
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.3'
+    VERSION = '0.6.4'
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ
@@ -446,7 +446,7 @@ module Win32
         raise SystemCallError.new('OpenEventLog', FFI.errno)
       end
 
-      event = CreateEvent(nil, false, false, nil)
+      event = CreateEvent(nil, 0, 0, nil)
 
       unless NotifyChangeEventLog(@handle, event)
         raise SystemCallError.new('NotifyChangeEventLog', FFI.errno)
