@@ -18,7 +18,7 @@ module Win32
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.4'
+    VERSION = '0.6.5'
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ
@@ -1015,11 +1015,11 @@ module Win32
                   end
 
                   FreeLibrary(hmodule)
-                  break if buf.nstrip != ""
+                  break if buf.read_string != ""
                 end
               }
 
-              va = va.gsub("%%#{x.first}", buf.nstrip)
+              va = va.gsub("%%#{x.first}", buf.read_string)
             }
 
             va
