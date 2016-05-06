@@ -60,11 +60,13 @@
 
 == Known Issues
   * JRuby users may need to increase their heap space.
-  * JRuby x64 suffers from a bug that currently makes this library unusable.
-    See https://github.com/jruby/jruby/issues/1718.
 
   Please file any bug reports on the project page at
   http://github.com/djberg96/win32-eventlog.
+
+== Alternatives
+  You can use ruby-wmi + Win32_NTLogEvent to get Windows eventlog information
+  using OLE behind the scenes. 
 
 == License
   Artistic 2.0

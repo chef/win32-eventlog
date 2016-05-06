@@ -5,7 +5,13 @@ module Windows
     extend FFI::Library
     ffi_lib :advapi32
 
-    typedef :uintptr_t, :handle
+    # https://github.com/jruby/jruby/issues/2293
+    if RUBY_PLATFORM == 'java' && ENV_JAVA['sun.arch.data.model'] == '64'
+      typedef :ulong_long, :handle
+    else
+      typedef :uintptr_t, :handle
+    end
+
     typedef :uintptr_t, :hkey
     typedef :ulong, :dword
     typedef :ushort, :word
@@ -33,7 +39,7 @@ module Windows
     ffi_lib :kernel32
 
     attach_function :CloseHandle, [:handle], :bool
-    attach_function :CreateEvent, :CreateEventA, [:pointer, :bool, :bool, :string], :handle
+    attach_function :CreateEvent, :CreateEventA, [:pointer, :int, :int, :string], :handle
     attach_function :ExpandEnvironmentStrings, :ExpandEnvironmentStringsA, [:string, :pointer, :dword], :dword
     attach_function :FormatMessage, :FormatMessageA, [:dword, :uintptr_t, :dword, :dword, :pointer, :dword, :pointer], :dword
     attach_function :FreeLibrary, [:handle], :bool
@@ -42,10 +48,14 @@ module Windows
     attach_function :Wow64DisableWow64FsRedirection, [:pointer], :bool
     attach_function :Wow64RevertWow64FsRedirection, [:ulong], :bool
 
-    ffi_lib :wevtapi
+    begin
+      ffi_lib :wevtapi
 
-    attach_function :EvtClose, [:handle], :bool
-    attach_function :EvtOpenPublisherMetadata, [:handle, :buffer_in, :buffer_in, :dword, :dword], :handle
-    attach_function :EvtGetPublisherMetadataProperty, [:handle, :int, :dword, :dword, :pointer, :pointer], :bool
+      attach_function :EvtClose, [:handle], :bool
+      attach_function :EvtOpenPublisherMetadata, [:handle, :buffer_in, :buffer_in, :dword, :dword], :handle
+      attach_function :EvtGetPublisherMetadataProperty, [:handle, :int, :dword, :dword, :pointer, :pointer], :bool
+    rescue LoadError
+      # 2003
+    end
   end
 end

@@ -25,7 +25,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "version constant is set to expected value" do
-    assert_equal('0.6.1', EventLog::VERSION)
+    assert_equal('0.6.5', EventLog::VERSION)
   end
 
   test "constructor basic functionality" do

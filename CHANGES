@@ -1,4 +1,21 @@
-== 0.6.1 - ???
+== 0.6.5 - 29-Oct-2015
+* Fixed some old code in the read method that was never properly updated.
+  Thanks go to João Duarte for the spot.
+
+== 0.6.4 - 25-Oct-2015
+* Fixed function prototype and call for CreateEvent.
+* This gem is now signed.
+* Any gem related tasks in the Rakefile now assume Rubygems 2.x.
+* Added a win32-eventlog.rb file for convenience.
+
+== 0.6.3 - 20-May-2015
+* Added a workaround for a bug in 64-bit JRuby.
+
+== 0.6.2 - 6-Oct-2014
+* Now rescues LoadError if the wevtapi lib cannot be found. Thanks go to
+  Josh Cooper for the patch.
+
+== 0.6.1 - 1-Jun-2014
 * Added the read_last_event instance method. This was already in the code as
   as a private method but it is now public.
 * Removed some intermediate variables and properly re-use some memory pointers
