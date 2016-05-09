@@ -245,6 +245,11 @@ module Win32
       ensure
         RegCloseKey(hkey)
       end
+      
+      hkey.free
+      hkey = nil
+      disposition.free
+      disposition = nil
 
       hkey = FFI::MemoryPointer.new(:uintptr_t)
       disposition = FFI::MemoryPointer.new(:ulong)
@@ -285,6 +290,8 @@ module Win32
           if rv != ERROR_SUCCESS
             raise SystemCallError.new('RegSetValueEx', rv)
           end
+          data.free
+          data.nil
         end
 
         if hash['category_message_file']
@@ -303,6 +310,8 @@ module Win32
           if rv != ERROR_SUCCESS
             raise SystemCallError.new('RegSetValueEx', rv)
           end
+          data.free
+          data.nil
         end
 
         if hash['event_message_file']
@@ -321,6 +330,8 @@ module Win32
           if rv != ERROR_SUCCESS
             raise SystemCallError.new('RegSetValueEx', rv)
           end
+          data.free
+          data.nil
         end
 
         if hash['parameter_message_file']
@@ -339,6 +350,8 @@ module Win32
           if rv != ERROR_SUCCESS
             raise SystemCallError.new('RegSetValueEx', rv)
           end
+          data.free
+          data.nil
         end
 
         data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['supported_types'])
@@ -355,11 +368,18 @@ module Win32
         if rv != ERROR_SUCCESS
           raise SystemCallError.new('RegSetValueEx', rv)
         end
+        data.free
+        data.nil
       ensure
         RegCloseKey(hkey)
       end
 
-      disposition.read_ulong
+      valreturn = disposition.read_ulong
+      disposition.free
+      disposition = nil
+      hkey.free
+      hkey = nil
+      valreturn
     end
 
     # Backs up the event log to +file+.  Note that you cannot backup to
@@ -400,7 +420,12 @@ module Win32
         raise SystemCallError.new('GetEventLogInformation', FFI.errno)
       end
 
-      ptr.read_ulong != 0
+      valreturn = ptr.read_ulong != 0
+      needed.free
+      needed = nil
+      ptr.free
+      ptr = nil
+      valreturn
     end
 
     # Returns the absolute record number of the oldest record.  Note that
@@ -414,7 +439,10 @@ module Win32
         raise SystemCallError.new('GetOldestEventLogRecord', FFI.errno)
       end
 
-      rec.read_ulong
+      valreturn = rec.read_ulong
+      rec.free
+      rec = nil
+      valreturn
     end
 
     # Returns the total number of records for the given event log.
@@ -426,7 +454,10 @@ module Win32
         raise SystemCallError.new('GetNumberOfEventLogRecords', FFI.errno)
       end
 
-      total.read_ulong
+      valreturn = total.read_ulong
+      total.free
+      total = nil
+      valreturn
     end
 
     # Yields an EventLogStruct every time a record is written to the event
@@ -548,6 +579,8 @@ module Win32
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
         lkey = hkey.read_pointer.to_i
+        hkey.free
+        hkey = nil
       end
 
       while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
@@ -727,6 +760,11 @@ module Win32
         nil
       )
 
+      if data.nil?
+        data.free
+        data = nil
+      end
+      
       unless bool
         raise SystemCallError.new('ReportEvent', FFI.errno)
       end
@@ -763,6 +801,8 @@ module Win32
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
         lkey = hkey.read_pointer.to_i
+        hkey.free
+        hkey = nil
       end
 
       record = EVENTLOGRECORD.new(buf)
@@ -822,7 +862,21 @@ module Win32
       )
 
       # Return nil if the lookup failed
-      return val ? name.read_string : nil
+      namereturn = val ? name.read_string : nil
+
+      domain_size.free
+      domain_size = nil
+      name_size.free
+      name_size = nil
+
+      snu.free
+      snu = nil
+      domain.free
+      domain = nil
+      name.free
+      name = nil
+
+      namereturn
     end
 
     # Private method that converts a numeric event type into a human
@@ -1187,10 +1241,12 @@ module Win32
       ensure
         Wow64RevertWow64FsRedirection(old_wow_val.read_ulong)
         old_wow_val.free
+        old_wow_val = nil
       end
 
       resultstr = buf.read_string
       buf.free
+      buf = nil
       [va_list0, resultstr]
     end
   end
