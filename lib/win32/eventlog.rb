@@ -60,6 +60,8 @@ module Win32
     # that fails.
     AUDIT_FAILURE = EVENTLOG_AUDIT_FAILURE
 
+    EVENTLOGFIXDATALENGTH = 56
+
     # The EventLogStruct encapsulates a single event log record.
     EventLogStruct = Struct.new('EventLogStruct', :record_number,
       :time_generated, :time_written, :event_id, :event_type, :category,
@@ -568,8 +570,8 @@ module Win32
           struct = EventLogStruct.new
           record = EVENTLOGRECORD.new(buf)
 
-          struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-          struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
+          struct.source         = buf.read_bytes(buf.size)[EVENTLOGFIXDATALENGTH..-1][/^[^\0]*/]
+          struct.computer       = buf.read_bytes(buf.size)[EVENTLOGFIXDATALENGTH + struct.source.length + 1..-1][/^[^\0]*/]
           struct.record_number  = record[:RecordNumber]
           struct.time_generated = Time.at(record[:TimeGenerated])
           struct.time_written   = Time.at(record[:TimeWritten])
@@ -766,8 +768,8 @@ module Win32
       record = EVENTLOGRECORD.new(buf)
 
       struct = EventLogStruct.new
-      struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-      struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
+      struct.source         = buf.read_bytes(buf.size)[EVENTLOGFIXDATALENGTH..-1][/^[^\0]*/]
+      struct.computer       = buf.read_bytes(buf.size)[EVENTLOGFIXDATALENGTH + struct.source.length + 1..-1][/^[^\0]*/]
       struct.record_number  = record[:RecordNumber]
       struct.time_generated = Time.at(record[:TimeGenerated])
       struct.time_written   = Time.at(record[:TimeWritten])
