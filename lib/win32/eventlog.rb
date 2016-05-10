@@ -726,7 +726,7 @@ module Win32
         strptrs << FFI::MemoryPointer.from_string(hash['data'])
         strptrs << nil
 
-        data = FFI::MemoryPointer.new(:pointer, strptrs.size)
+        data = FFI::MemoryPointer.new(FFI::Platform::ADDRESS_SIZE/8, strptrs.size)
 
         strptrs.each_with_index do |p, i|
           data[i].put_pointer(0, p)
@@ -741,7 +741,7 @@ module Win32
         }
 
         strptrs << nil
-        data = FFI::MemoryPointer.new(:pointer, strptrs.size)
+        data = FFI::MemoryPointer.new(FFI::Platform::ADDRESS_SIZE/8, strptrs.size)
 
         strptrs.each_with_index do |p, i|
           data[i].put_pointer(0, p)
@@ -1137,7 +1137,7 @@ module Win32
             va_list.each{ |x| strptrs << FFI::MemoryPointer.from_string(x) }
             strptrs << nil
 
-            va_list_ptr = FFI::MemoryPointer.new(:pointer, strptrs.size)
+            va_list_ptr = FFI::MemoryPointer.new(FFI::Platform::ADDRESS_SIZE/8, strptrs.size)
 
             strptrs.each_with_index{ |p, i|
               va_list_ptr[i].put_pointer(0, p)
