@@ -183,8 +183,6 @@ module Win32
         supported_types
       ]
 
-      key_base = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
-
       # Default values
       hash = {
         'source'          => 'Application',
@@ -208,7 +206,7 @@ module Win32
       hkey = FFI::MemoryPointer.new(:uintptr_t)
       disposition = FFI::MemoryPointer.new(:ulong)
 
-      key = key_base + hash['source']
+      key = BASE_KEY + hash['source']
 
       rv = RegCreateKeyEx(
         HKEY_LOCAL_MACHINE,
@@ -254,7 +252,7 @@ module Win32
       hkey = FFI::MemoryPointer.new(:uintptr_t)
       disposition = FFI::MemoryPointer.new(:ulong)
 
-      key  = key_base << hash['source'] << "\\" << hash['key_name']
+      key  = BASE_KEY << hash['source'] << "\\" << hash['key_name']
 
       begin
         rv = RegCreateKeyEx(
