@@ -16,6 +16,8 @@ module Windows
 
     EVENTLOG_FULL_INFO = 0
 
+    EVENTLOG_FIXEDDATALENGTH = 56
+
     HKEY_LOCAL_MACHINE = 0x80000002
 
     REG_OPTION_NON_VOLATILE = 0
@@ -32,6 +34,7 @@ module Windows
     WAIT_FAILED = 0xFFFFFFFF
 
     BASE_KEY = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
+    PUBBASE_KEY = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\"
 
     STANDARD_RIGHTS_READ  = 0x20000
     STANDARD_RIGHTS_WRITE = 0x20000
