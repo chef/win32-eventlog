@@ -203,180 +203,39 @@ module Win32
         raise ArgumentError, 'no event_type specified'
       end
 
-      hkey = FFI::MemoryPointer.new(:uintptr_t)
-      disposition = FFI::MemoryPointer.new(:ulong)
-
       key = BASE_KEY + hash['source']
-
-      rv = RegCreateKeyEx(
-        HKEY_LOCAL_MACHINE,
-        key,
-        0,
-        nil,
-        REG_OPTION_NON_VOLATILE,
-        KEY_WRITE,
-        nil,
-        hkey,
-        disposition
-      )
-
-      if rv != ERROR_SUCCESS
-        raise SystemCallError.new('RegCreateKeyEx', rv)
+      Win32::Registry::HKEY_LOCAL_MACHINE.create(key, Win32::Registry::KEY_ALL_ACCESS, Win32::Registry::REG_OPTION_NON_VOLATILE) do |regkey|
+        data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
+        regkey.write('File', Win32::Registry::REG_EXPAND_SZ, data)
       end
 
-      hkey = hkey.read_pointer.to_i
-      data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
-
-      begin
-        rv = RegSetValueEx(
-          hkey,
-          'File',
-          0,
-          REG_EXPAND_SZ,
-          data,
-          data.size
-        )
-
-        if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', rv)
-        end
-      ensure
-        RegCloseKey(hkey)
-      end
-      
-      hkey.free
-      hkey = nil
-      disposition.free
-      disposition = nil
-
-      hkey = FFI::MemoryPointer.new(:uintptr_t)
-      disposition = FFI::MemoryPointer.new(:ulong)
+      valreturn = nil
 
       key  = BASE_KEY << hash['source'] << "\\" << hash['key_name']
-
-      begin
-        rv = RegCreateKeyEx(
-          HKEY_LOCAL_MACHINE,
-          key,
-          0,
-          nil,
-          REG_OPTION_NON_VOLATILE,
-          KEY_WRITE,
-          nil,
-          hkey,
-          disposition
-        )
-
-        if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegCreateKeyEx', rv)
-        end
-
-        hkey = hkey.read_pointer.to_i
-
+      Win32::Registry::HKEY_LOCAL_MACHINE.create(key, Win32::Registry::KEY_ALL_ACCESS, Win32::Registry::REG_OPTION_NON_VOLATILE) do |regkey|
         if hash['category_count']
-          data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
-
-          rv = RegSetValueEx(
-            hkey,
-            'CategoryCount',
-            0,
-            REG_DWORD,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
-          data.free
-          data.nil
+          regkey.write('CategoryCount', Win32::Registry::REG_DWORD, hash['category_count'])
         end
 
         if hash['category_message_file']
           data = File.expand_path(hash['category_message_file'])
-          data = FFI::MemoryPointer.from_string(data)
-
-          rv = RegSetValueEx(
-            hkey,
-            'CategoryMessageFile',
-            0,
-            REG_EXPAND_SZ,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
-          data.free
-          data.nil
+          regkey.write('CategoryMessageFile', Win32::Registry::REG_EXPAND_SZ, data)
         end
 
         if hash['event_message_file']
           data = File.expand_path(hash['event_message_file'])
-          data = FFI::MemoryPointer.from_string(data)
-
-          rv = RegSetValueEx(
-            hkey,
-            'EventMessageFile',
-            0,
-            REG_EXPAND_SZ,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
-          data.free
-          data.nil
+          regkey.write('EventMessageFile', Win32::Registry::REG_EXPAND_SZ, data)
         end
 
         if hash['parameter_message_file']
           data = File.expand_path(hash['parameter_message_file'])
-          data = FFI::MemoryPointer.from_string(data)
-
-          rv = RegSetValueEx(
-            hkey,
-            'ParameterMessageFile',
-            0,
-            REG_EXPAND_SZ,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
-          data.free
-          data.nil
+          regkey.write('ParameterMessageFile', Win32::Registry::REG_EXPAND_SZ, data)
         end
 
-        data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['supported_types'])
-
-        rv = RegSetValueEx(
-          hkey,
-          'TypesSupported',
-          0,
-          REG_DWORD,
-          data,
-          data.size
-        )
-
-        if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', rv)
-        end
-        data.free
-        data.nil
-      ensure
-        RegCloseKey(hkey)
+        regkey.write('TypesSupported', Win32::Registry::REG_DWORD, hash['supported_types'])
+        valreturn = regkey.disposition
       end
 
-      valreturn = disposition.read_ulong
-      disposition.free
-      disposition = nil
-      hkey.free
-      hkey = nil
       valreturn
     end
 
@@ -929,30 +788,20 @@ module Win32
         param_exe = nil
         message_exe = nil
 
-        hkey = Win32::Registry::open(lkey, key) rescue nil
-        unless hkey.nil?
-          guid = hkey["providerGuid"] rescue nil
+        regkey = Win32::Registry.open(lkey, key) rescue nil
+        unless regkey.nil?
+          guid = regkey["providerGuid"] rescue nil
           unless guid.nil?
             key2  = PUBBASE_KEY + "#{guid}"
-            param_file = Win32::Registry::open(lkey, key2)["ParameterMessageFile"] rescue nil
-            message_file = Win32::Registry::open(ley, key2)["MessageFileName"] rescue nil
-
-            unless param_file.nil?
-              param_exe = Win32::Registry.expand_environ(param_file)
-              param_file.close()
-            end
-            unless message_file.nil?
-              message_exe = Win32::Registry.expand_environ(message_file)
-              message_file.close()
+            Win32::Registry.open(lkey, key2) do 
+              param_exe = regkey2["ParameterMessageFile", REG_EXPAND_SZ]
+              message_exe = regkey2["MessageFileName", REG_EXPAND_SZ]
             end
           else
-            param_file = hkey["ParameterMessageFile"] rescue nil
-            message_file = hkey["EventMessageFile"] rescue nil
-
-            param_exe = param_file.nil? ? nil : Win32::Registry.expand_environ(param_file)
-            message_exe = message_file.nil? ? nil : Win32::Registry.expand_environ(message_file)
+            param_exe = regkey["ParameterMessageFile", REG_EXPAND_SZ]
+            message_exe = regkey["EventMessageFile", REG_EXPAND_SZ]
           end
-          hkey.close()
+          regkey.close
         else
           wevent_source = (event_source + 0.chr).encode('UTF-16LE')
 
