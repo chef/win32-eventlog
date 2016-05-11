@@ -68,6 +68,11 @@ module Win32
       :source, :computer, :user, :string_inserts, :description, :data
     )
 
+    # The EventLogStruct encapsulates a single event log record.
+    RegistryHKEYStruct = Struct.new('RegistryHKEYStruct', :hkey,
+      :parent, :keyname, :disposition
+    )
+
     # The name of the event log source.  This will typically be
     # 'Application', 'System' or 'Security', but could also refer to
     # a custom event log source.
@@ -420,13 +425,13 @@ module Win32
     # If no block is given the method returns an array of EventLogStruct's.
     #
     def read(flags = nil, offset = 0)
-      buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+      buf       = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
       bufKeeper = buf
-      read   = FFI::MemoryPointer.new(:ulong)
-      needed = FFI::MemoryPointer.new(:ulong)
-      array  = []
-      lkey   = HKEY_LOCAL_MACHINE
-      hkey   = nil
+      read      = FFI::MemoryPointer.new(:ulong)
+      needed    = FFI::MemoryPointer.new(:ulong)
+      array     = []
+      reglkey   = Win32::Registry::HKEY_LOCAL_MACHINE
+      hkey      = nil
 
       unless flags
         flags = FORWARDS_READ | SEQUENTIAL_READ
@@ -434,10 +439,15 @@ module Win32
 
       if @server
         hkey = FFI::MemoryPointer.new(:uintptr_t)
-        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
+        if RegConnectRegistry(@server, Win32::Registry::HKEY_LOCAL_MACHINE.hkey, hkey) != 0
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.read_pointer.to_i
+        # Dirty hack to access remote registry using Win32::Registry
+        reglkey = RegistryHKEYStruct.new
+        reglkey.hkey = hkey.read_pointer.to_i
+        reglkey.parent = nil
+        reglkey.keyname = "REMOTE_HKEY_LOCAL_MACHINE"
+        reglkey.disposition = Win32::Registry::REG_OPENED_EXISTING_KEY
       end
 
       while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
@@ -471,7 +481,7 @@ module Win32
           struct.event_type     = get_event_type(record[:EventType])
           struct.user           = get_user(record)
           struct.category       = record[:EventCategory]
-          struct.string_inserts, struct.description = get_description(variableData, record, struct.source, lkey)
+          struct.string_inserts, struct.description = get_description(variableData, record, struct.source, reglkey)
           struct.data           = record[:DataLength] <= 0 ? nil : (variableData[record[:DataOffset] - EVENTLOG_FIXEDDATALENGTH, record[:DataLength]])
           struct.freeze # This is read-only information
 
@@ -498,7 +508,7 @@ module Win32
       end
 
       unless hkey.nil?
-        RegCloseKey(hkey)
+        RegCloseKey(hkey.read_pointer.to_i)
         hkey.free
         hkey = nil
       end
@@ -639,11 +649,11 @@ module Win32
     # Reads the last event record.
     #
     def read_last_event
-      buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
-      read   = FFI::MemoryPointer.new(:ulong)
-      needed = FFI::MemoryPointer.new(:ulong)
-      lkey   = HKEY_LOCAL_MACHINE
-      hkey   = nil
+      buf       = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+      read      = FFI::MemoryPointer.new(:ulong)
+      needed    = FFI::MemoryPointer.new(:ulong)
+      reglkey   = Win32::Registry::HKEY_LOCAL_MACHINE
+      hkey      = nil
 
       flags = EVENTLOG_BACKWARDS_READ | EVENTLOG_SEQUENTIAL_READ
 
@@ -662,10 +672,15 @@ module Win32
 
       if @server
         hkey = FFI::MemoryPointer.new(:uintptr_t)
-        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
+        if RegConnectRegistry(@server, Win32::Registry::HKEY_LOCAL_MACHINE.hkey, hkey) != 0
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.read_pointer.to_i
+        # Dirty hack to access remote registry using Win32::Registry
+        reglkey = RegistryHKEYStruct.new
+        reglkey.hkey = hkey.read_pointer.to_i
+        reglkey.parent = nil
+        reglkey.keyname = "REMOTE_HKEY_LOCAL_MACHINE"
+        reglkey.disposition = Win32::Registry::REG_OPENED_EXISTING_KEY
       end
 
       record = EVENTLOGRECORD.new(buf)
@@ -682,13 +697,13 @@ module Win32
       struct.event_type     = get_event_type(record[:EventType])
       struct.user           = get_user(record)
       struct.category       = record[:EventCategory]
-      struct.string_inserts, struct.description = get_description(variableData, record, struct.source, lkey)
+      struct.string_inserts, struct.description = get_description(variableData, record, struct.source, reglkey)
       struct.data           = record[:DataLength] <= 0 ? nil : (variableData[record[:DataOffset] - EVENTLOG_FIXEDDATALENGTH, record[:DataLength]])
 
       struct.freeze # This is read-only information
 
       unless hkey.nil?
-        RegCloseKey(hkey)
+        RegCloseKey(hkey.read_pointer.to_i)
         hkey.free
         hkey = nil
       end
@@ -774,7 +789,7 @@ module Win32
     # event description (String) based on data from the EVENTLOGRECORD
     # buffer.
     #
-    def get_description(variableData, record, event_source, lkey)
+    def get_description(variableData, record, event_source, reglkey)
       str     = record[:DataLength] > 0 ? variableData[record[:StringOffset] - EVENTLOG_FIXEDDATALENGTH .. record[:DataOffset] - EVENTLOG_FIXEDDATALENGTH - 1] : variableData[record[:StringOffset] - EVENTLOG_FIXEDDATALENGTH .. -5]
       num     = record[:NumStrings]
       key     = BASE_KEY + "#{@source}\\#{event_source}"
@@ -788,18 +803,18 @@ module Win32
         param_exe = nil
         message_exe = nil
 
-        regkey = Win32::Registry.open(lkey, key) rescue nil
-        unless regkey.nil?
+        regkey = Win32::Registry.open(reglkey, key) rescue nil
+        if !regkey.nil? && regkey.open?
           guid = regkey["providerGuid"] rescue nil
           unless guid.nil?
             key2  = PUBBASE_KEY + "#{guid}"
-            Win32::Registry.open(lkey, key2) do 
-              param_exe = regkey2["ParameterMessageFile", REG_EXPAND_SZ]
-              message_exe = regkey2["MessageFileName", REG_EXPAND_SZ]
+            Win32::Registry.open(reglkey, key2) do |regkey2|
+              param_exe = regkey2["ParameterMessageFile", REG_EXPAND_SZ] rescue nil
+              message_exe = regkey2["MessageFileName", REG_EXPAND_SZ] rescue nil
             end
           else
-            param_exe = regkey["ParameterMessageFile", REG_EXPAND_SZ]
-            message_exe = regkey["EventMessageFile", REG_EXPAND_SZ]
+            param_exe = regkey["ParameterMessageFile", REG_EXPAND_SZ] rescue nil
+            message_exe = regkey["EventMessageFile", REG_EXPAND_SZ] rescue nil
           end
           regkey.close
         else
