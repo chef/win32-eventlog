@@ -2,6 +2,8 @@ require_relative 'windows/constants'
 require_relative 'windows/structs'
 require_relative 'windows/functions'
 
+require 'win32/registry'
+
 # The Win32 module serves as a namespace only.
 module Win32
 
@@ -63,7 +65,12 @@ module Win32
     # The EventLogStruct encapsulates a single event log record.
     EventLogStruct = Struct.new('EventLogStruct', :record_number,
       :time_generated, :time_written, :event_id, :event_type, :category,
-      :source, :computer, :user, :string_inserts, :description
+      :source, :computer, :user, :string_inserts, :description, :data
+    )
+
+    # The EventLogStruct encapsulates a single event log record.
+    RegistryHKEYStruct = Struct.new('RegistryHKEYStruct', :hkey,
+      :parent, :keyname, :disposition
     )
 
     # The name of the event log source.  This will typically be
@@ -112,7 +119,35 @@ module Win32
         raise SystemCallError.new(function, FFI.errno)
       end
 
-      # Ensure the handle is closed at the end of a block
+      @totalrec = FFI::MemoryPointer.new(:ulong)
+      @oldestrec = FFI::MemoryPointer.new(:ulong)
+      @eventfullptr = FFI::MemoryPointer.new(:ulong, 1)
+      @eventfullneeded = FFI::MemoryPointer.new(:ulong)
+
+      @readBuf = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+      @readPos = @readBuf
+      @readSize = FFI::MemoryPointer.new(:ulong)
+      @readNeeded = FFI::MemoryPointer.new(:ulong)
+      @readHKey = FFI::MemoryPointer.new(:uintptr_t)
+
+      @readlBuf = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+      @readlSize = FFI::MemoryPointer.new(:ulong)
+      @readlNeeded = FFI::MemoryPointer.new(:ulong)
+      @readlHKey = FFI::MemoryPointer.new(:uintptr_t)
+
+      @guserName = FFI::MemoryPointer.new(:char, MAX_SIZE)
+      @guserName_size   = FFI::MemoryPointer.new(:ulong)
+      @guserDomain = FFI::MemoryPointer.new(:char, MAX_SIZE)
+      @guserDomain_size = FFI::MemoryPointer.new(:ulong)
+      @guserSnu    = FFI::MemoryPointer.new(:int)
+
+      #Max buf size 64KB required by FormatMessage https://msdn.microsoft.com/en-us/library/windows/desktop/ms679351(v=vs.85).aspx
+      @gdescriptionBuf1 = FFI::MemoryPointer.new(:char, 65535)
+      @gdescriptionBuf2 = FFI::MemoryPointer.new(:char, 65535)
+      @gdescriptionOldWowVal = FFI::MemoryPointer.new(:int)
+      @gdescriptionRetVal = FFI::MemoryPointer.new(:ulong)
+
+      # Ensure the handle is closed at the end of a block and all pointers are free
       if block_given?
         begin
           yield self
@@ -181,8 +216,6 @@ module Win32
         supported_types
       ]
 
-      key_base = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
-
       # Default values
       hash = {
         'source'          => 'Application',
@@ -203,161 +236,40 @@ module Win32
         raise ArgumentError, 'no event_type specified'
       end
 
-      hkey = FFI::MemoryPointer.new(:uintptr_t)
-      disposition = FFI::MemoryPointer.new(:ulong)
-
-      key = key_base + hash['source']
-
-      rv = RegCreateKeyEx(
-        HKEY_LOCAL_MACHINE,
-        key,
-        0,
-        nil,
-        REG_OPTION_NON_VOLATILE,
-        KEY_WRITE,
-        nil,
-        hkey,
-        disposition
-      )
-
-      if rv != ERROR_SUCCESS
-        raise SystemCallError.new('RegCreateKeyEx', rv)
+      key = BASE_KEY + hash['source']
+      Win32::Registry::HKEY_LOCAL_MACHINE.create(key, Win32::Registry::KEY_ALL_ACCESS, Win32::Registry::REG_OPTION_NON_VOLATILE) do |regkey|
+        data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
+        regkey.write('File', Win32::Registry::REG_EXPAND_SZ, data)
       end
 
-      hkey = hkey.read_pointer.to_i
-      data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
+      valreturn = nil
 
-      begin
-        rv = RegSetValueEx(
-          hkey,
-          'File',
-          0,
-          REG_EXPAND_SZ,
-          data,
-          data.size
-        )
-
-        if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', rv)
-        end
-      ensure
-        RegCloseKey(hkey)
-      end
-
-      hkey = FFI::MemoryPointer.new(:uintptr_t)
-      disposition = FFI::MemoryPointer.new(:ulong)
-
-      key  = key_base << hash['source'] << "\\" << hash['key_name']
-
-      begin
-        rv = RegCreateKeyEx(
-          HKEY_LOCAL_MACHINE,
-          key,
-          0,
-          nil,
-          REG_OPTION_NON_VOLATILE,
-          KEY_WRITE,
-          nil,
-          hkey,
-          disposition
-        )
-
-        if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegCreateKeyEx', rv)
-        end
-
-        hkey = hkey.read_pointer.to_i
-
+      key  = BASE_KEY << hash['source'] << "\\" << hash['key_name']
+      Win32::Registry::HKEY_LOCAL_MACHINE.create(key, Win32::Registry::KEY_ALL_ACCESS, Win32::Registry::REG_OPTION_NON_VOLATILE) do |regkey|
         if hash['category_count']
-          data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
-
-          rv = RegSetValueEx(
-            hkey,
-            'CategoryCount',
-            0,
-            REG_DWORD,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
+          regkey.write('CategoryCount', Win32::Registry::REG_DWORD, hash['category_count'])
         end
 
         if hash['category_message_file']
           data = File.expand_path(hash['category_message_file'])
-          data = FFI::MemoryPointer.from_string(data)
-
-          rv = RegSetValueEx(
-            hkey,
-            'CategoryMessageFile',
-            0,
-            REG_EXPAND_SZ,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
+          regkey.write('CategoryMessageFile', Win32::Registry::REG_EXPAND_SZ, data)
         end
 
         if hash['event_message_file']
           data = File.expand_path(hash['event_message_file'])
-          data = FFI::MemoryPointer.from_string(data)
-
-          rv = RegSetValueEx(
-            hkey,
-            'EventMessageFile',
-            0,
-            REG_EXPAND_SZ,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
+          regkey.write('EventMessageFile', Win32::Registry::REG_EXPAND_SZ, data)
         end
 
         if hash['parameter_message_file']
           data = File.expand_path(hash['parameter_message_file'])
-          data = FFI::MemoryPointer.from_string(data)
-
-          rv = RegSetValueEx(
-            hkey,
-            'ParameterMessageFile',
-            0,
-            REG_EXPAND_SZ,
-            data,
-            data.size
-          )
-
-          if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
-          end
+          regkey.write('ParameterMessageFile', Win32::Registry::REG_EXPAND_SZ, data)
         end
 
-        data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['supported_types'])
-
-        rv = RegSetValueEx(
-          hkey,
-          'TypesSupported',
-          0,
-          REG_DWORD,
-          data,
-          data.size
-        )
-
-        if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', rv)
-        end
-      ensure
-        RegCloseKey(hkey)
+        regkey.write('TypesSupported', Win32::Registry::REG_DWORD, hash['supported_types'])
+        valreturn = regkey.disposition
       end
 
-      disposition.read_ulong
+      valreturn
     end
 
     # Backs up the event log to +file+.  Note that you cannot backup to
@@ -385,20 +297,64 @@ module Win32
     # if you use the block form of EventLog.new.
     #
     def close
+      @gdescriptionBuf1.free
+      @gdescriptionBuf1 = nil
+      @gdescriptionBuf2.free
+      @gdescriptionBuf2 = nil
+      @gdescriptionOldWowVal.free
+      @gdescriptionOldWowVal = nil
+      @gdescriptionRetVal.free
+      @gdescriptionRetVal = nil
+
+      @guserSnu.free
+      @guserSnu = nil
+      @guserDomain_size.free
+      @guserDomain_size = nil
+      @guserDomain.free
+      @guserDomain = nil
+      @guserName_size.free
+      @guserName_size = nil
+      @guserName.free
+      @guserName = nil
+
+      @readlHKey.free
+      @readlHKey = nil
+      @readlNeeded.free
+      @readlNeeded = nil
+      @readlSize.free
+      @readlSize = nil
+      @readlBuf.free
+      @readlBuf = nil
+
+      @readHKey.free
+      @readHKey = nil
+      @readNeeded.free
+      @readNeeded = nil
+      @readSize.free
+      @readSize = nil
+      @readBuf.free
+      @readPos = nil
+      @readBuf = nil
+
+      @eventfullneeded.free
+      @eventfullneeded = nil
+      @eventfullptr.free
+      @eventfullptr = nil
+      @oldestrec.free
+      @oldestrec = nil
+      @totalrec.free
+      @totalrec = nil
       CloseEventLog(@handle)
     end
 
     # Indicates whether or not the event log is full.
     #
     def full?
-      ptr = FFI::MemoryPointer.new(:ulong, 1)
-      needed = FFI::MemoryPointer.new(:ulong)
-
-      unless GetEventLogInformation(@handle, 0, ptr, ptr.size, needed)
+      unless GetEventLogInformation(@handle, 0, @eventfullptr, @eventfullptr.size, @eventfullneeded)
         raise SystemCallError.new('GetEventLogInformation', FFI.errno)
       end
 
-      ptr.read_ulong != 0
+      @eventfullptr.read_ulong != 0
     end
 
     # Returns the absolute record number of the oldest record.  Note that
@@ -406,25 +362,21 @@ module Win32
     # overwritten.
     #
     def oldest_record_number
-      rec = FFI::MemoryPointer.new(:ulong)
-
-      unless GetOldestEventLogRecord(@handle, rec)
+      unless GetOldestEventLogRecord(@handle, @oldestrec)
         raise SystemCallError.new('GetOldestEventLogRecord', FFI.errno)
       end
 
-      rec.read_ulong
+      @oldestrec.read_ulong
     end
 
     # Returns the total number of records for the given event log.
     #
     def total_records
-      total = FFI::MemoryPointer.new(:ulong)
-
-      unless GetNumberOfEventLogRecords(@handle, total)
+      unless GetNumberOfEventLogRecords(@handle, @totalrec)
         raise SystemCallError.new('GetNumberOfEventLogRecords', FFI.errno)
       end
 
-      total.read_ulong
+      @totalrec.read_ulong
     end
 
     # Yields an EventLogStruct every time a record is written to the event
@@ -525,56 +477,64 @@ module Win32
     # * user           # String or nil
     # * description    # String or nil
     # * string_inserts # An array of Strings or nil
+    # * data           # binary data or nil
     #
     # If no block is given the method returns an array of EventLogStruct's.
     #
     def read(flags = nil, offset = 0)
-      buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
-      read   = FFI::MemoryPointer.new(:ulong)
-      needed = FFI::MemoryPointer.new(:ulong)
-      array  = []
-      lkey   = HKEY_LOCAL_MACHINE
+      @readBuf.clear
+      @readSize.clear
+      @readNeeded.clear
+      array     = []
+      reglkey   = Win32::Registry::HKEY_LOCAL_MACHINE
+      @readHKey.clear
 
       unless flags
         flags = FORWARDS_READ | SEQUENTIAL_READ
       end
 
-      if @server
-        hkey = FFI::MemoryPointer.new(:uintptr_t)
-        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
+      unless @server.nil?
+        if RegConnectRegistry(@server, Win32::Registry::HKEY_LOCAL_MACHINE.hkey, @readHKey) != 0
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
-        lkey = hkey.read_pointer.to_i
+        # Dirty hack to access remote registry using Win32::Registry
+        reglkey = RegistryHKEYStruct.new
+        reglkey.hkey = @readHKey.read_pointer.to_i
+        reglkey.parent = nil
+        reglkey.keyname = "REMOTE_HKEY_LOCAL_MACHINE"
+        reglkey.disposition = Win32::Registry::REG_OPENED_EXISTING_KEY
       end
 
-      while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
+      while ReadEventLog(@handle, flags, offset, @readBuf, @readBuf.size, @readSize, @readNeeded) ||
         FFI.errno == ERROR_INSUFFICIENT_BUFFER
 
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
-          needed = needed.read_ulong / EVENTLOGRECORD.size
-          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
-          unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
+          @readBuf.free
+          @readBuf = nil
+          @readBuf = FFI::MemoryPointer.new(:char, @readNeeded.read_ulong)
+          unless ReadEventLog(@handle, flags, offset, @readBuf, @readBuf.size, @readSize, @readNeeded)
             raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
         end
 
-        dwread = read.read_ulong
+        @readPos = @readBuf
+        dwread = @readSize.read_ulong
 
         while dwread > 0
+          recordItem = EVENTLOGRECORD.new(@readPos)
+
           struct = EventLogStruct.new
-          record = EVENTLOGRECORD.new(buf)
-
-          struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-          struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
-          struct.record_number  = record[:RecordNumber]
-          struct.time_generated = Time.at(record[:TimeGenerated])
-          struct.time_written   = Time.at(record[:TimeWritten])
-          struct.event_id       = record[:EventID] & 0x0000FFFF
-          struct.event_type     = get_event_type(record[:EventType])
-          struct.user           = get_user(record)
-          struct.category       = record[:EventCategory]
-          struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
-
+          struct.source         = @readPos.get_string(EVENTLOG_FIXEDDATALENGTH)
+          struct.computer       = @readPos.get_string(EVENTLOG_FIXEDDATALENGTH + struct.source.length + 1)
+          struct.record_number  = recordItem[:RecordNumber]
+          struct.time_generated = Time.at(recordItem[:TimeGenerated])
+          struct.time_written   = Time.at(recordItem[:TimeWritten])
+          struct.event_id       = recordItem[:EventID] & 0x0000FFFF
+          struct.event_type     = get_event_type(recordItem[:EventType])
+          struct.user           = get_user(recordItem)
+          struct.category       = recordItem[:EventCategory]
+          struct.string_inserts, struct.description = get_description(@readPos, recordItem, struct.source, reglkey)
+          struct.data           = recordItem[:DataLength] <= 0 ? nil : @readPos.get_bytes(recordItem[:DataOffset], recordItem[:DataLength])
           struct.freeze # This is read-only information
 
           if block_given?
@@ -583,21 +543,22 @@ module Win32
             array.push(struct)
           end
 
-          if flags & EVENTLOG_BACKWARDS_READ > 0
-            offset = record[:RecordNumber] - 1
+          if flags & BACKWARDS_READ > 0
+            offset = recordItem[:RecordNumber] - 1
           else
-            offset = record[:RecordNumber] + 1
+            offset = recordItem[:RecordNumber] + 1
           end
 
-          length = record[:Length]
+          length = recordItem[:Length]
 
           dwread -= length
-          buf += length
+          @readPos += length
         end
-
-        buf  = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
       end
 
+      if @readHKey.read_float.to_i != 0
+        RegCloseKey(@readHKey.read_pointer.to_i)
+      end
       block_given? ? nil : array
     end
 
@@ -669,12 +630,13 @@ module Win32
         raise SystemCallError.new('RegisterEventSource', FFI.errno)
       end
 
+      data = FFI::MemoryPointer::NULL
       if hash['data'].is_a?(String)
         strptrs = []
         strptrs << FFI::MemoryPointer.from_string(hash['data'])
         strptrs << nil
 
-        data = FFI::MemoryPointer.new(:pointer, strptrs.size)
+        data = FFI::MemoryPointer.new(FFI::Platform::ADDRESS_SIZE/8, strptrs.size)
 
         strptrs.each_with_index do |p, i|
           data[i].put_pointer(0, p)
@@ -689,7 +651,7 @@ module Win32
         }
 
         strptrs << nil
-        data = FFI::MemoryPointer.new(:pointer, strptrs.size)
+        data = FFI::MemoryPointer.new(FFI::Platform::ADDRESS_SIZE/8, strptrs.size)
 
         strptrs.each_with_index do |p, i|
           data[i].put_pointer(0, p)
@@ -713,6 +675,17 @@ module Win32
         nil
       )
 
+      strptrs.each{ |p|
+        unless p.nil?
+          p.free
+          p = nil
+        end
+      }
+      unless data.null?
+        data.free
+        data = nil
+      end
+      
       unless bool
         raise SystemCallError.new('ReportEvent', FFI.errno)
       end
@@ -723,18 +696,32 @@ module Win32
     # Reads the last event record.
     #
     def read_last_event
-      buf    = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
-      read   = FFI::MemoryPointer.new(:ulong)
-      needed = FFI::MemoryPointer.new(:ulong)
-      lkey   = HKEY_LOCAL_MACHINE
+      @readlBuf.clear
+      @readlSize.clear
+      @readlNeeded.clear
+      reglkey   = Win32::Registry::HKEY_LOCAL_MACHINE
+      @readlHKey.clear
 
-      flags = EVENTLOG_BACKWARDS_READ | EVENTLOG_SEQUENTIAL_READ
+      flags = BACKWARDS_READ | SEQUENTIAL_READ
 
-      unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
+      unless @server.nil?
+        if RegConnectRegistry(@server, Win32::Registry::HKEY_LOCAL_MACHINE.hkey, @readlHKey) != 0
+          raise SystemCallError.new('RegConnectRegistry', FFI.errno)
+        end
+        # Dirty hack to access remote registry using Win32::Registry
+        reglkey = RegistryHKEYStruct.new
+        reglkey.hkey = @readlHKey.read_pointer.to_i
+        reglkey.parent = nil
+        reglkey.keyname = "REMOTE_HKEY_LOCAL_MACHINE"
+        reglkey.disposition = Win32::Registry::REG_OPENED_EXISTING_KEY
+      end
+
+      unless ReadEventLog(@handle, flags, 0, @readlBuf, @readlBuf.size, @readlSize, @readlNeeded)
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
-          needed = needed.read_ulong / EVENTLOGRECORD.size
-          buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
-          unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
+          @readlBuf.free
+          @readlBuf = nil
+          @readlBuf = FFI::MemoryPointer.new(:char, @readlNeeded.read_ulong)
+          unless ReadEventLog(@handle, flags, 0, @readlBuf, @readlBuf.size, @readlSize, @readlNeeded)
             raise SystemCallError.new('ReadEventLog', FFI.errno)
           end
         else
@@ -742,30 +729,26 @@ module Win32
         end
       end
 
-      if @server
-        hkey = FFI::MemoryPointer.new(:uintptr_t)
-        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-          raise SystemCallError.new('RegConnectRegistry', FFI.errno)
-        end
-        lkey = hkey.read_pointer.to_i
-      end
 
-      record = EVENTLOGRECORD.new(buf)
+      recordItem = EVENTLOGRECORD.new(@readlBuf)
 
       struct = EventLogStruct.new
-      struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-      struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
-      struct.record_number  = record[:RecordNumber]
-      struct.time_generated = Time.at(record[:TimeGenerated])
-      struct.time_written   = Time.at(record[:TimeWritten])
-      struct.event_id       = record[:EventID] & 0x0000FFFF
-      struct.event_type     = get_event_type(record[:EventType])
-      struct.user           = get_user(record)
-      struct.category       = record[:EventCategory]
-      struct.string_inserts, struct.description = get_description(buf, struct.source, lkey)
-
+      struct.source         = @readlBuf.get_string(EVENTLOG_FIXEDDATALENGTH)
+      struct.computer       = @readlBuf.get_string(EVENTLOG_FIXEDDATALENGTH + struct.source.length + 1)
+      struct.record_number  = recordItem[:RecordNumber]
+      struct.time_generated = Time.at(recordItem[:TimeGenerated])
+      struct.time_written   = Time.at(recordItem[:TimeWritten])
+      struct.event_id       = recordItem[:EventID] & 0x0000FFFF
+      struct.event_type     = get_event_type(recordItem[:EventType])
+      struct.user           = get_user(recordItem)
+      struct.category       = recordItem[:EventCategory]
+      struct.string_inserts, struct.description = get_description(@readlBuf, recordItem, struct.source, reglkey)
+      struct.data           = recordItem[:DataLength] <= 0 ? nil : @readlBuf.get_bytes(recordItem[:DataOffset], recordItem[:DataLength])
       struct.freeze # This is read-only information
 
+      if @readlHKey.read_float.to_i != 0
+        RegCloseKey(@readlHKey.read_pointer.to_i)
+      end
       struct
     end
 
@@ -777,30 +760,29 @@ module Win32
     def get_user(rec)
       return nil if rec[:UserSidLength] <= 0
 
-      name   = FFI::MemoryPointer.new(:char, MAX_SIZE)
-      domain = FFI::MemoryPointer.new(:char, MAX_SIZE)
-      snu    = FFI::MemoryPointer.new(:int)
+      @guserName.clear
+      @guserName_size.clear
+      @guserDomain.clear
+      @guserDomain_size.clear
+      @guserSnu.clear
 
-      name_size   = FFI::MemoryPointer.new(:ulong)
-      domain_size = FFI::MemoryPointer.new(:ulong)
-
-      name_size.write_ulong(name.size)
-      domain_size.write_ulong(domain.size)
+      @guserName_size.write_ulong(@guserName.size)
+      @guserDomain_size.write_ulong(@guserDomain.size)
 
       offset = rec[:UserSidOffset]
 
       val = LookupAccountSid(
         @server,
         rec.pointer + offset,
-        name,
-        name_size,
-        domain,
-        domain_size,
-        snu
+        @guserName,
+        @guserName_size,
+        @guserDomain,
+        @guserDomain_size,
+        @guserSnu
       )
 
       # Return nil if the lookup failed
-      return val ? name.read_string : nil
+      val ? @guserDomain.read_string + "\\" + @guserName.read_string : nil
     end
 
     # Private method that converts a numeric event type into a human
@@ -808,15 +790,15 @@ module Win32
     #
     def get_event_type(event)
       case event
-        when EVENTLOG_ERROR_TYPE
+        when ERROR_TYPE
           'error'
-        when EVENTLOG_WARNING_TYPE
+        when WARN_TYPE
           'warning'
-        when EVENTLOG_INFORMATION_TYPE, EVENTLOG_SUCCESS
+        when INFO_TYPE, SUCCESS
           'information'
-        when EVENTLOG_AUDIT_SUCCESS
+        when AUDIT_SUCCESS
           'audit_success'
-        when EVENTLOG_AUDIT_FAILURE
+        when AUDIT_FAILURE
           'audit_failure'
         else
           nil
@@ -827,98 +809,33 @@ module Win32
     # event description (String) based on data from the EVENTLOGRECORD
     # buffer.
     #
-    def get_description(buf, event_source, lkey)
-      rec     = EVENTLOGRECORD.new(buf)
-      str     = buf.read_bytes(buf.size)[rec[:StringOffset] .. -1]
-      num     = rec[:NumStrings]
-      hkey    = FFI::MemoryPointer.new(:uintptr_t)
+    def get_description(readerBufPtr, record, event_source, reglkey)
+      num     = record[:NumStrings]
       key     = BASE_KEY + "#{@source}\\#{event_source}"
-      buf     = FFI::MemoryPointer.new(:char, 8192)
-      va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
+      @gdescriptionBuf1.clear
+      va_list = va_list0 = (num == 0) ? [] : (record[:DataLength] > 0 ? readerBufPtr.get_bytes(record[:StringOffset], record[:DataOffset] - 1) : readerBufPtr.get_bytes(record[:StringOffset], readerBufPtr.size - record[:StringOffset])).unpack('Z*' * num)
 
       begin
-        old_wow_val = FFI::MemoryPointer.new(:int)
-        Wow64DisableWow64FsRedirection(old_wow_val)
+        @gdescriptionOldWowVal.clear
+        Wow64DisableWow64FsRedirection(@gdescriptionOldWowVal)
 
         param_exe = nil
         message_exe = nil
 
-        if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
-          hkey  = hkey.read_pointer.to_i
-          value = 'providerGuid'
-
-          guid_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
-          size_ptr = FFI::MemoryPointer.new(:ulong)
-
-          size_ptr.write_ulong(guid_ptr.size)
-
-          if RegQueryValueEx(hkey, value, nil, nil, guid_ptr, size_ptr) == 0
-            guid  = guid_ptr.read_string
-            hkey2 = FFI::MemoryPointer.new(:uintptr_t)
-            key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
-
-            guid_ptr.free
-
-            if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-              hkey2  = hkey2.read_pointer.to_i
-
-              value = 'ParameterMessageFile'
-              file_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              size_ptr.clear.write_ulong(file_ptr.size)
-
-              if RegQueryValueEx(hkey2, value, nil, nil, file_ptr, size_ptr) == 0
-                file = file_ptr.read_string
-                exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-                ExpandEnvironmentStrings(file, exe, exe.size)
-                param_exe = exe.read_string
-              end
-
-              value = 'MessageFileName'
-
-              file_ptr.clear
-              size_ptr.clear.write_ulong(file_ptr.size)
-
-              if RegQueryValueEx(hkey2, value, nil, nil, file_ptr, size_ptr) == 0
-                file = file_ptr.read_string
-                exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-                ExpandEnvironmentStrings(file, exe, exe.size)
-                message_exe = exe.read_string
-              end
-
-              RegCloseKey(hkey2)
-
-              file_ptr.free
-              size_ptr.free
+        regkey = Win32::Registry.open(reglkey, key) rescue nil
+        if !regkey.nil? && regkey.open?
+          guid = regkey["providerGuid"] rescue nil
+          unless guid.nil?
+            key2  = PUBBASE_KEY + "#{guid}"
+            Win32::Registry.open(reglkey, key2) do |regkey2|
+              param_exe = regkey2["ParameterMessageFile", REG_EXPAND_SZ] rescue nil
+              message_exe = regkey2["MessageFileName", REG_EXPAND_SZ] rescue nil
             end
           else
-            value = 'ParameterMessageFile'
-            file_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
-            size_ptr.clear.write_ulong(file_ptr.size)
-
-            if RegQueryValueEx(hkey, value, nil, nil, file_ptr, size_ptr) == 0
-              file = file_ptr.read_string
-              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              ExpandEnvironmentStrings(file, exe, exe.size)
-              param_exe = exe.read_string
-            end
-
-            value = 'EventMessageFile'
-
-            file_ptr.clear
-            size_ptr.clear.write_ulong(file_ptr.size)
-
-            if RegQueryValueEx(hkey, value, nil, nil, file_ptr, size_ptr) == 0
-              file = file_ptr.read_string
-              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              ExpandEnvironmentStrings(file, exe, exe.size)
-              message_exe = exe.read_string
-            end
-
-            file_ptr.free
-            size_ptr.free
+            param_exe = regkey["ParameterMessageFile", REG_EXPAND_SZ] rescue nil
+            message_exe = regkey["EventMessageFile", REG_EXPAND_SZ] rescue nil
           end
-
-          RegCloseKey(hkey)
+          regkey.close
         else
           wevent_source = (event_source + 0.chr).encode('UTF-16LE')
 
@@ -926,214 +843,257 @@ module Win32
             pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, nil, 1024, 0)
 
             if pubMetadata > 0
-              buf2 = FFI::MemoryPointer.new(:char, 8192)
-              val  = FFI::MemoryPointer.new(:ulong)
+              @gdescriptionBuf2.clear
+              @gdescriptionRetVal.clear
 
               bool = EvtGetPublisherMetadataProperty(
                 pubMetadata,
                 2, # EvtPublisherMetadataParameterFilePath
                 0,
-                buf2.size,
-                buf2,
-                val
+                @gdescriptionBuf2.size,
+                @gdescriptionBuf2,
+                @gdescriptionRetVal
               )
 
               unless bool
                 raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
               end
 
-              file = buf2.read_string[16..-1]
-              exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              ExpandEnvironmentStrings(file, exe, exe.size)
-              param_exe = exe.read_string
+              param_file = @gdescriptionBuf2.read_string[16..-1]
+              param_exe = param_file.nil? ? nil : Win32::Registry.expand_environ(param_file)
 
-              buf2.clear
-              val.clear
+              @gdescriptionBuf2.clear
+              @gdescriptionRetVal.clear
 
               bool = EvtGetPublisherMetadataProperty(
                 pubMetadata,
                 3, # EvtPublisherMetadataMessageFilePath
                 0,
-                buf2.size,
-                buf2,
-                val
+                @gdescriptionBuf2.size,
+                @gdescriptionBuf2,
+                @gdescriptionRetVal
               )
 
               unless bool
                 raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
               end
 
-              exe.clear
 
-              file = buf2.read_string[16..-1]
-              ExpandEnvironmentStrings(file, exe, exe.size)
-              message_exe = exe.read_string
-
-              buf2.free
-              val.free
-              exe.free
+              message_file = @gdescriptionBuf2.read_string[16..-1]
+              message_exe = message_file.nil? ? nil : Win32::Registry.expand_environ(message_file)
             end
           ensure
             EvtClose(pubMetadata) if pubMetadata
           end
         end
 
-        if param_exe != nil
+        unless param_exe.nil?
+          @gdescriptionBuf1.clear
           va_list = va_list0.map{ |v|
             va = v
 
             v.scan(/%%(\d+)/).uniq.each{ |x|
               param_exe.split(';').each{ |lfile|
-                hmodule  = LoadLibraryEx(
-                  lfile,
-                  0,
-                  DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
-                )
-
-                if hmodule != 0
-                  res = FormatMessage(
-                    FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                    hmodule,
-                    x.first.to_i,
+                if lfile.to_s.strip.length == 0
+                  next
+                end
+                #To fix "string contains null byte" on some registry entry (corrupted?)
+                lfile.gsub!(/\0/, '')
+                begin
+                  hmodule  = LoadLibraryEx(
+                    lfile,
                     0,
-                    buf,
-                    buf.size,
-                    v
+                    DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
                   )
 
-                  if res == 0
-                    event_id = 0xB0000000 | event_id
+                  if hmodule != 0
+                    @gdescriptionBuf1.clear
                     res = FormatMessage(
-                      FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
                       hmodule,
-                      event_id,
+                      x.first.to_i,
                       0,
-                      buf,
-                      buf.size,
-                      nil
+                      @gdescriptionBuf1,
+                      @gdescriptionBuf1.size,
+                      v
                     )
-                  end
 
-                  FreeLibrary(hmodule)
-                  break if buf.read_string != ""
+                    if res == 0
+                      event_id = 0xB0000000 | x.first.to_i
+                      @gdescriptionBuf1.clear
+                      res = FormatMessage(
+                        FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                        hmodule,
+                        event_id,
+                        0,
+                        @gdescriptionBuf1,
+                        @gdescriptionBuf1.size,
+                        nil
+                      )
+                    else
+                      next
+                    end
+                    break if @gdescriptionBuf1.read_string.gsub(/\n+/, '') != ""
+                  end
+                ensure
+                  FreeLibrary(hmodule) if hmodule && hmodule != 0
                 end
               }
 
-              va = va.gsub("%%#{x.first}", buf.read_string)
+              va = va.gsub("%%#{x.first}", @gdescriptionBuf1.read_string.gsub(/\n+/, ''))
             }
 
             va
           }
         end
 
-        if message_exe != nil
-          buf.clear
+        unless message_exe.nil?
+          @gdescriptionBuf1.clear
 
           # Try to retrieve message *without* expanding the inserts yet
           message_exe.split(';').each{ |lfile|
-            hmodule = LoadLibraryEx(
-              lfile,
-              0,
-              DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
-            )
-
-            event_id = rec[:EventID]
-
-            if hmodule != 0
-              res = FormatMessage(
-                FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
-                hmodule,
-                event_id,
+            if lfile.to_s.strip.length == 0
+              next
+            end
+            #To fix "string contains null byte" on some registry entry (corrupted?)
+            lfile.gsub!(/\0/, '')
+            #puts "message_exe#" + record[:RecordNumber].to_s + "lfile:" + lfile
+            begin
+              hmodule = LoadLibraryEx(
+                lfile,
                 0,
-                buf,
-                buf.size,
-                nil
+                DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
               )
 
-              if res == 0
-                event_id = 0xB0000000 | event_id
+              event_id = record[:EventID]
 
+              if hmodule != 0
+                @gdescriptionBuf1.clear
                 res = FormatMessage(
                   FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
                   hmodule,
                   event_id,
                   0,
-                  buf,
-                  buf.size,
+                  @gdescriptionBuf1,
+                  @gdescriptionBuf1.size,
                   nil
                 )
-              end
 
-              FreeLibrary(hmodule)
-              break if buf.read_string != "" # All messages read
+                if res == 0
+                  event_id = 0xB0000000 | event_id
+                  @gdescriptionBuf1.clear
+                  res = FormatMessage(
+                    FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
+                    hmodule,
+                    event_id,
+                    0,
+                    @gdescriptionBuf1,
+                    @gdescriptionBuf1.size,
+                    nil
+                  )
+                end
+                #puts "message_exe#" + record[:RecordNumber].to_s + "@gdescriptionBuf1:" + @gdescriptionBuf1.read_string
+                break if @gdescriptionBuf1.read_string != "" # All messages read
+              end
+            ensure
+              FreeLibrary(hmodule) if hmodule && hmodule != 0
             end
           }
 
           # Determine higest %n insert number
-          max_insert = [num, buf.read_string.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
+          # Remove %% to fix: The %1 '%2' preference item in the '%3' Group Policy Object did not apply because it failed with error code '%4'%%100790273
+          max_insert = [num, @gdescriptionBuf1.read_string.gsub(/%%/, '').scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
+          #puts "message_exe#" + record[:RecordNumber].to_s + "max_insert:" + max_insert.to_s
 
           # Insert dummy strings not provided by caller
           ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
 
+          strptrs = []
           if num == 0
-            va_list_ptr = FFI::MemoryPointer.new(:pointer)
+            va_list_ptr = nil
           else
-            strptrs = []
             va_list.each{ |x| strptrs << FFI::MemoryPointer.from_string(x) }
             strptrs << nil
 
-            va_list_ptr = FFI::MemoryPointer.new(:pointer, strptrs.size)
+            va_list_ptr = FFI::MemoryPointer.new(FFI::Platform::ADDRESS_SIZE/8, strptrs.size)
 
             strptrs.each_with_index{ |p, i|
               va_list_ptr[i].put_pointer(0, p)
+              #unless p.nil?
+              #  puts "message_exe2#" + record[:RecordNumber].to_s + "va_list_ptr:" + i.to_s + "/" + p.read_string
+              #end
             }
           end
 
           message_exe.split(';').each{ |lfile|
-            hmodule = LoadLibraryEx(
-              lfile,
-              0,
-              DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
-            )
-
-            event_id = rec[:EventID]
-
-            if hmodule != 0
-              res = FormatMessage(
-                FORMAT_MESSAGE_FROM_HMODULE |
-                FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                hmodule,
-                event_id,
+            if lfile.to_s.strip.length == 0
+              next
+            end
+            #To fix "string contains null byte" on some registry entry (corrupted?)
+            lfile.gsub!(/\0/, '')
+            #puts "message_exe2#" + record[:RecordNumber].to_s + "lfile:" + lfile
+            begin
+             hmodule = LoadLibraryEx(
+                lfile,
                 0,
-                buf,
-                buf.size,
-                va_list_ptr
+                DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
               )
 
-              if res == 0
-                event_id = 0xB0000000 | event_id
+              event_id = record[:EventID]
 
+              if hmodule != 0
+                @gdescriptionBuf1.clear
                 res = FormatMessage(
-                  FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                  FORMAT_MESSAGE_FROM_HMODULE |
+                  FORMAT_MESSAGE_ARGUMENT_ARRAY,
                   hmodule,
                   event_id,
                   0,
-                  buf,
-                  buf.size,
+                  @gdescriptionBuf1,
+                  @gdescriptionBuf1.size,
                   va_list_ptr
                 )
-              end
+                #puts "message_exe2#" + record[:RecordNumber].to_s + "res1:" + res.to_s
 
-              FreeLibrary(hmodule)
-              break if buf.read_string != "" # All messages read
+                if res == 0
+                  event_id = 0xB0000000 | event_id
+                  @gdescriptionBuf1.clear
+                  res = FormatMessage(
+                    FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
+                    hmodule,
+                    event_id,
+                    0,
+                    @gdescriptionBuf1,
+                    @gdescriptionBuf1.size,
+                    va_list_ptr
+                  )
+                  #puts "message_exe2#" + record[:RecordNumber].to_s + "res2:" + res.to_s
+                end
+                #puts "message_exe2#" + record[:RecordNumber].to_s + "@gdescriptionBuf1:" + @gdescriptionBuf1.read_string(60)
+                break if @gdescriptionBuf1.read_string != "" # All messages read
+              end
+            ensure
+              FreeLibrary(hmodule) if hmodule && hmodule != 0
             end
           }
+          if num != 0
+            strptrs.each{ |p|
+              unless p.nil?
+                p.free
+                p = nil
+              end
+            }
+            va_list_ptr.free
+            va_list_ptr = nil
+          end
         end
       ensure
-        Wow64RevertWow64FsRedirection(old_wow_val.read_ulong)
+        Wow64RevertWow64FsRedirection(@gdescriptionOldWowVal.read_ulong)
       end
 
-      [va_list0, buf.read_string]
+      resultstr = @gdescriptionBuf1.read_string.force_encoding("Windows-1252")
+      va_list0.map! { |x| x.force_encoding("Windows-1252") }
+      [va_list0, resultstr]
     end
   end
 end
