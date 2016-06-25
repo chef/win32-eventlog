@@ -1,3 +1,4 @@
+require 'ffi/win32/extensions'
 require_relative 'windows/constants'
 require_relative 'windows/structs'
 require_relative 'windows/functions'
@@ -8,17 +9,17 @@ module Win32
   # The EventLog class encapsulates an Event Log source and provides methods
   # for interacting with that source.
   class EventLog
-    include Windows::Constants
-    include Windows::Structs
-    include Windows::Functions
-    extend Windows::Functions
+    include Windows::EventLogConstants
+    include Windows::EventLogStructs
+    include Windows::EventLogFunctions
+    extend Windows::EventLogFunctions
 
     # The EventLog::Error is raised in cases where interaction with the
     # event log should happen to fail for any reason.
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.5'
+    VERSION = '0.6.6'
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ
@@ -96,16 +97,22 @@ module Win32
       @server = server
       @file   = file
 
-      # Avoid potential segfaults from win32-api
       raise TypeError unless @source.is_a?(String)
-      raise TypeError unless @server.is_a?(String) if @server
+
+      source = @source.wincode
+
+      if @server
+        raise TypeError unless @server.is_a?(String)
+        server = @server.wincode
+      end
 
       if file.nil?
         function = 'OpenEventLog'
-        @handle = OpenEventLog(@server, @source)
+        @handle = OpenEventLog(server, source)
       else
+        file = file.wincode
         function = 'OpenBackupEventLog'
-        @handle = OpenBackupEventLog(@server, @file)
+        @handle = OpenBackupEventLog(server, file)
       end
 
       if @handle == 0
@@ -210,7 +217,7 @@ module Win32
 
       rv = RegCreateKeyEx(
         HKEY_LOCAL_MACHINE,
-        key,
+        key.wincode,
         0,
         nil,
         REG_OPTION_NON_VOLATILE,
@@ -230,7 +237,7 @@ module Win32
       begin
         rv = RegSetValueEx(
           hkey,
-          'File',
+          'File'.wincode,
           0,
           REG_EXPAND_SZ,
           data,
@@ -273,7 +280,7 @@ module Win32
 
           rv = RegSetValueEx(
             hkey,
-            'CategoryCount',
+            'CategoryCount'.wincode,
             0,
             REG_DWORD,
             data,
@@ -291,7 +298,7 @@ module Win32
 
           rv = RegSetValueEx(
             hkey,
-            'CategoryMessageFile',
+            'CategoryMessageFile'.wincode,
             0,
             REG_EXPAND_SZ,
             data,
@@ -309,7 +316,7 @@ module Win32
 
           rv = RegSetValueEx(
             hkey,
-            'EventMessageFile',
+            'EventMessageFile'.wincode,
             0,
             REG_EXPAND_SZ,
             data,
@@ -327,7 +334,7 @@ module Win32
 
           rv = RegSetValueEx(
             hkey,
-            'ParameterMessageFile',
+            'ParameterMessageFile'.wincode,
             0,
             REG_EXPAND_SZ,
             data,
@@ -343,7 +350,7 @@ module Win32
 
         rv = RegSetValueEx(
           hkey,
-          'TypesSupported',
+          'TypesSupported'.wincode,
           0,
           REG_DWORD,
           data,
@@ -365,7 +372,7 @@ module Win32
     #
     def backup(file)
       raise TypeError unless file.is_a?(String)
-      unless BackupEventLog(@handle, file)
+      unless BackupEventLog(@handle, file.wincode)
         raise SystemCallError.new('BackupEventLog', FFI.errno)
       end
     end
@@ -374,7 +381,10 @@ module Win32
     # event log to that file first.
     #
     def clear(backup_file = nil)
-      raise TypeError unless backup_file.is_a?(String) if backup_file
+      if backup_file
+        raise TypeError unless backup_file.is_a?(String)
+        backup_file = backup_file.wincode
+      end
 
       unless ClearEventLog(@handle, backup_file)
         raise SystemCallError.new('ClearEventLog', FFI.errno)
@@ -663,7 +673,7 @@ module Win32
         raise ArgumentError, 'no event_type specified'
       end
 
-      handle = RegisterEventSource(@server, hash['source'])
+      handle = RegisterEventSource(@server.wincode, hash['source'])
 
       if handle == 0
         raise SystemCallError.new('RegisterEventSource', FFI.errno)
@@ -744,7 +754,7 @@ module Win32
 
       if @server
         hkey = FFI::MemoryPointer.new(:uintptr_t)
-        if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
+        if RegConnectRegistry(@server.wincode, HKEY_LOCAL_MACHINE, hkey) != 0
           raise SystemCallError.new('RegConnectRegistry', FFI.errno)
         end
         lkey = hkey.read_pointer.to_i
@@ -789,8 +799,10 @@ module Win32
 
       offset = rec[:UserSidOffset]
 
+      server = @server ? @server.wincode : @server
+
       val = LookupAccountSid(
-        @server,
+        server,
         rec.pointer + offset,
         name,
         name_size,
@@ -843,7 +855,7 @@ module Win32
         param_exe = nil
         message_exe = nil
 
-        if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
+        if RegOpenKeyEx(lkey, key.wincode, 0, KEY_READ, hkey) == 0
           hkey  = hkey.read_pointer.to_i
           value = 'providerGuid'
 
@@ -852,14 +864,14 @@ module Win32
 
           size_ptr.write_ulong(guid_ptr.size)
 
-          if RegQueryValueEx(hkey, value, nil, nil, guid_ptr, size_ptr) == 0
+          if RegQueryValueEx(hkey, value.wincode, nil, nil, guid_ptr, size_ptr) == 0
             guid  = guid_ptr.read_string
             hkey2 = FFI::MemoryPointer.new(:uintptr_t)
             key   = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\WINEVT\\Publishers\\#{guid}"
 
             guid_ptr.free
 
-            if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
+            if RegOpenKeyEx(lkey, key.wincode, 0, KEY_READ|0x100, hkey2) == 0
               hkey2  = hkey2.read_pointer.to_i
 
               value = 'ParameterMessageFile'
@@ -869,7 +881,7 @@ module Win32
               if RegQueryValueEx(hkey2, value, nil, nil, file_ptr, size_ptr) == 0
                 file = file_ptr.read_string
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-                ExpandEnvironmentStrings(file, exe, exe.size)
+                ExpandEnvironmentStrings(file.wincode, exe, exe.size)
                 param_exe = exe.read_string
               end
 
@@ -881,7 +893,7 @@ module Win32
               if RegQueryValueEx(hkey2, value, nil, nil, file_ptr, size_ptr) == 0
                 file = file_ptr.read_string
                 exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-                ExpandEnvironmentStrings(file, exe, exe.size)
+                ExpandEnvironmentStrings(file.wincode, exe, exe.size)
                 message_exe = exe.read_string
               end
 
@@ -898,7 +910,7 @@ module Win32
             if RegQueryValueEx(hkey, value, nil, nil, file_ptr, size_ptr) == 0
               file = file_ptr.read_string
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              ExpandEnvironmentStrings(file, exe, exe.size)
+              ExpandEnvironmentStrings(file.wincode, exe, exe.size)
               param_exe = exe.read_string
             end
 
@@ -910,7 +922,7 @@ module Win32
             if RegQueryValueEx(hkey, value, nil, nil, file_ptr, size_ptr) == 0
               file = file_ptr.read_string
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              ExpandEnvironmentStrings(file, exe, exe.size)
+              ExpandEnvironmentStrings(file.wincode, exe, exe.size)
               message_exe = exe.read_string
             end
 
@@ -944,7 +956,7 @@ module Win32
 
               file = buf2.read_string[16..-1]
               exe  = FFI::MemoryPointer.new(:char, MAX_SIZE)
-              ExpandEnvironmentStrings(file, exe, exe.size)
+              ExpandEnvironmentStrings(file.wincode, exe, exe.size)
               param_exe = exe.read_string
 
               buf2.clear
@@ -966,7 +978,7 @@ module Win32
               exe.clear
 
               file = buf2.read_string[16..-1]
-              ExpandEnvironmentStrings(file, exe, exe.size)
+              ExpandEnvironmentStrings(file.wincode, exe, exe.size)
               message_exe = exe.read_string
 
               buf2.free
@@ -985,7 +997,7 @@ module Win32
             v.scan(/%%(\d+)/).uniq.each{ |x|
               param_exe.split(';').each{ |lfile|
                 hmodule  = LoadLibraryEx(
-                  lfile,
+                  lfile.wincode,
                   0,
                   DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
                 )
@@ -1032,7 +1044,7 @@ module Win32
           # Try to retrieve message *without* expanding the inserts yet
           message_exe.split(';').each{ |lfile|
             hmodule = LoadLibraryEx(
-              lfile,
+              lfile.wincode,
               0,
               DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
             )
@@ -1091,7 +1103,7 @@ module Win32
 
           message_exe.split(';').each{ |lfile|
             hmodule = LoadLibraryEx(
-              lfile,
+              lfile.wincode,
               0,
               DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
             )
