@@ -176,16 +176,17 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_kind_of(Win32::EventLog::EventLogStruct, @log.read_last_event)
   end
 
-  # Allowing for 0 records is mostly for appveyor. I really need a more
-  # robust test approach here.
-  #
   test "seek_read flag plus forwards_read flag works as expected" do
+    assert_nothing_raised{ @last = @log.read[-10] }
+
+    omit_unless(@last, "No records found, skipping")
     flags = EventLog::SEEK_READ | EventLog::FORWARDS_READ
-    assert_nothing_raised{ @last = @log.read[-10].record_number }
+
     assert_nothing_raised{
-      @records = EventLog.read(nil, nil, flags, @last)
+      @records = EventLog.read(nil, nil, flags, @last.record_number)
     }
-    assert_true([0,10].include?(@records.length))
+
+    assert_equal(10, @records.length)
   end
 
   # Allowing for 0 records is mostly for appveyor. I really need a more
