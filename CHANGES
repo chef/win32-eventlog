@@ -1,3 +1,10 @@
+== 0.6.6 - 25-Jun-2016
+* Renamed the various modules that contain FFI information in order to
+  avoid a namespacing conflict. Thanks go to Bryan McLellan for the spot.
+* Removed the helper.rb file which wasn't being used.
+* Updated a few tests to not assume there are actually records in the
+  Application event log. Mostly this was for Appveyor.
+
 == 0.6.5 - 29-Oct-2015
 * Fixed some old code in the read method that was never properly updated.
   Thanks go to João Duarte for the spot.
