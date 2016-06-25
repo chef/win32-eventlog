@@ -1051,9 +1051,7 @@ module Win32
               )
 
               if res == 0
-                buf.free
-                buf = FFI::MemoryPointer.new(:char, 8192)
-
+                buf.clear
                 event_id = 0xB0000000 | event_id
 
                 res = FormatMessage(
