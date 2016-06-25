@@ -1,7 +1,7 @@
 require 'ffi'
 
 module Windows
-  module Functions
+  module EventLogFunctions
     extend FFI::Library
     ffi_lib :advapi32
 

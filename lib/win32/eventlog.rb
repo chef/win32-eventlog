@@ -8,17 +8,17 @@ module Win32
   # The EventLog class encapsulates an Event Log source and provides methods
   # for interacting with that source.
   class EventLog
-    include Windows::Constants
-    include Windows::Structs
-    include Windows::Functions
-    extend Windows::Functions
+    include Windows::EventLogConstants
+    include Windows::EventLogStructs
+    include Windows::EventLogFunctions
+    extend Windows::EventLogFunctions
 
     # The EventLog::Error is raised in cases where interaction with the
     # event log should happen to fail for any reason.
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.5'
+    VERSION = '0.6.6'
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ

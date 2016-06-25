@@ -1,5 +1,5 @@
 module Windows
-  module Constants
+  module EventLogConstants
     private
 
     EVENTLOG_SEQUENTIAL_READ = 0x0001

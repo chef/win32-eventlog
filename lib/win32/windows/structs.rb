@@ -1,7 +1,7 @@
 require 'ffi'
 
 module Windows
-  module Structs
+  module EventLogStructs
     extend FFI::Library
     typedef :ulong, :dword
     typedef :ushort, :word
