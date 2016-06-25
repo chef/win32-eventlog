@@ -37,13 +37,14 @@ class TC_Win32_MC < Test::Unit::TestCase
   def test_03_create_res_file
     omit_if(@@rc_cmd.nil?, "'rc' command not found - skipping")
     assert_respond_to(@mc, :create_res_file)
-    assert_equal(true, @mc.create_res_file)
+    assert_true(@mc.create_res_file)
   end
 
   def test_04_create_dll_file
     omit_if(@@link_cmd.nil?, "'link' command not found - skipping")
+    omit_unless(File.exist?(@mc.res_file), 'no res_file found - skipping')
     assert_respond_to(@mc, :create_dll_file)
-    assert_equal(true, @mc.create_dll_file)
+    assert_true(@mc.create_dll_file)
   end
 
   def test_05_clean
