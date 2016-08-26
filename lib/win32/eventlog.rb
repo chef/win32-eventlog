@@ -574,8 +574,8 @@ module Win32
           struct = EventLogStruct.new
           record = EVENTLOGRECORD.new(buf)
 
-          struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-          struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
+          struct.source         = buf.read_bytes(buf.size)[56..-1].wstrip
+          struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1].wstrip
           struct.record_number  = record[:RecordNumber]
           struct.time_generated = Time.at(record[:TimeGenerated])
           struct.time_written   = Time.at(record[:TimeWritten])
@@ -763,8 +763,8 @@ module Win32
       record = EVENTLOGRECORD.new(buf)
 
       struct = EventLogStruct.new
-      struct.source         = buf.read_bytes(buf.size)[56..-1][/^[^\0]*/]
-      struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1][/^[^\0]*/]
+      struct.source         = buf.read_bytes(buf.size)[56..-1].wstrip
+      struct.computer       = buf.read_bytes(buf.size)[56 + struct.source.length + 1..-1].wstrip
       struct.record_number  = record[:RecordNumber]
       struct.time_generated = Time.at(record[:TimeGenerated])
       struct.time_written   = Time.at(record[:TimeWritten])
