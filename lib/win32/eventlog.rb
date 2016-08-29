@@ -1091,43 +1091,9 @@ module Win32
           end
 
           message_exe.split(';').each{ |lfile|
-            hmodule = LoadLibraryEx(
-              lfile,
-              0,
-              DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
-            )
-
             event_id = rec[:EventID]
-
-            if hmodule != 0
-              res = FormatMessage(
-                FORMAT_MESSAGE_FROM_HMODULE |
-                FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                hmodule,
-                event_id,
-                0,
-                buf,
-                buf.size,
-                va_list_ptr
-              )
-
-              if res == 0
-                event_id = 0xB0000000 | event_id
-
-                res = FormatMessage(
-                  FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
-                  hmodule,
-                  event_id,
-                  0,
-                  buf,
-                  buf.size,
-                  va_list_ptr
-                )
-              end
-
-              FreeLibrary(hmodule)
-              break if buf.read_string != "" # All messages read
-            end
+            string = get_formatted_message(lfile, event_id, va_list_ptr)
+            break if string != "" # All messages read
           }
         end
       ensure
@@ -1135,6 +1101,36 @@ module Win32
       end
 
       [va_list0, buf.read_string]
+    end
+
+    private
+
+    def get_formatted_message(file, event_id, vptr)
+      lib_flags    = DONT_RESOLVE_DLL_REFERENCES|LOAD_LIBRARY_AS_DATAFILE
+      format_flags = FORMAT_MESSAGE_FROM_HMODULE|FORMAT_MESSAGE_ARGUMENT_ARRAY
+      string       = ''
+
+      begin
+        hmodule = LoadLibraryEx(file, 0, lib_flags)
+
+        if hmodule != 0
+          FFI::MemoryPointer.new(:char, 8192) do |buf|
+            result = FormatMessage(format_flags, hmodule, event_id, 0, buf, buf.size, vptr)
+
+            if result == 0
+              buf.clear
+              event_id = 0xB0000000 | event_id
+              result = FormatMessage(format_flags, hmodule, event_id, 0, buf, buf.size, vptr)
+            end
+
+            string = buf.read_string
+          end
+        end
+      ensure
+        FreeLibrary(hmodule) if hmodule && hmodule > 0
+      end
+
+      string
     end
   end
 end
