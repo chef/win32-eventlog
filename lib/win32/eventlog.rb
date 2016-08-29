@@ -1123,7 +1123,7 @@ module Win32
               result = FormatMessage(format_flags, hmodule, event_id, 0, buf, buf.size, vptr)
             end
 
-            string = buf.read_string
+            string = buf.read_string if result > 0
           end
         end
       ensure
