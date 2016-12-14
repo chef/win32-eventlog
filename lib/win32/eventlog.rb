@@ -620,6 +620,7 @@ module Win32
     # * source     # Event log source name. Defaults to "Application".
     # * event_id   # Event ID (defined in event message file).
     # * category   # Event category (defined in category message file).
+    # * user_sid   # object of Win32::Security::SID or SID struct (e.g returned by Win32::Security::SID.open('username').sid).
     # * data       # String, or array of strings, that is written to the log.
     # * event_type # Type of event, e.g. EventLog::ERROR_TYPE, etc.
     #
@@ -638,7 +639,7 @@ module Win32
     def report_event(args)
       raise TypeError unless args.is_a?(Hash)
 
-      valid_keys  = %w[source event_id category data event_type]
+      valid_keys  = %w[source event_id category data event_type user_sid]
       num_strings = 0
 
       # Default values
@@ -646,7 +647,8 @@ module Win32
         'source'   => @source,
         'event_id' => 0,
         'category' => 0,
-        'data'     => 0
+        'data'     => 0,
+        'user_sid' => nil
       }
 
       # Validate the keys, and convert symbols and case to lowercase strings.
@@ -701,12 +703,19 @@ module Win32
         num_strings = 0
       end
 
+      if hash['user_sid']
+        sid = hash['user_sid'].respond_to?(:sid) ? hash['user_sid'].sid : hash['user_sid']
+        user_sid = FFI::MemoryPointer.from_string(sid)
+      else
+        user_sid = nil
+      end
+
       bool = ReportEvent(
         handle,
         hash['event_type'],
         hash['category'],
         hash['event_id'],
-        nil,
+        user_sid,
         num_strings,
         0,
         data,
