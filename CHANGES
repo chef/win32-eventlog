@@ -1,3 +1,8 @@
+== 0.6.7 - 14-Dec-2016
+* The report_event method now accepts a 'user_sid' argument which can be either
+  a sid string or a Win32::Security::SID object. Thanks go to Elias Fröhner
+  for the patch.
+
 == 0.6.6 - 25-Jun-2016
 * Renamed the various modules that contain FFI information in order to
   avoid a namespacing conflict. Thanks go to Bryan McLellan for the spot.
