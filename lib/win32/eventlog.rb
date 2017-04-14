@@ -845,7 +845,7 @@ module Win32
       num     = rec[:NumStrings]
       hkey    = FFI::MemoryPointer.new(:uintptr_t)
       key     = BASE_KEY + "#{@source}\\#{event_source}"
-      buf     = FFI::MemoryPointer.new(:char, 8192)      
+      buf     = FFI::MemoryPointer.new(:char, 8192)
       va_list = va_list0 = (num == 0) ? [] : str.split("\0\0\0", num + 1)[0..-2].collect { |v| (v + "\0\0\0").force_encoding('UTF-16LE') }
 
       begin
