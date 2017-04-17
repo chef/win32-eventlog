@@ -846,7 +846,25 @@ module Win32
       hkey    = FFI::MemoryPointer.new(:uintptr_t)
       key     = BASE_KEY + "#{@source}\\#{event_source}"
       buf     = FFI::MemoryPointer.new(:char, 8192)
-      va_list = va_list0 = (num == 0) ? [] : str.split("\0\0\0", num + 1)[0..-2].collect { |v| (v + "\0\0\0").force_encoding('UTF-16LE') }
+      
+      va_list = []
+      if num > 0
+        w_chars = str.scan(/../)
+        w_char_indexes = w_chars.each_index.select{|i| w_chars[i] == "\0\0"}
+        w_char_indexes.insert(0, 0)
+                
+        for index in 0..num-1
+          if index > w_char_indexes.length - 1 
+            break
+          end
+
+          s_i = index == 0 ? w_char_indexes[index] : w_char_indexes[index] + 1
+          e_i = w_char_indexes[index + 1]
+          w_chars_str = w_chars[s_i..e_i].join("")
+          va_list.push((w_chars_str + "\0\0").force_encoding('UTF-16LE'))
+        end
+      end
+      va_list0 = va_list
 
       begin
         old_wow_val = FFI::MemoryPointer.new(:int)
