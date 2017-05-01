@@ -1080,7 +1080,7 @@ module Win32
           }
 
           # Determine higest %n insert number
-          max_insert = [num, buf.read_string.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
+          max_insert = [num, buf.read_string.scan(/(?<!%%)(?<=%)(\d+)/).map{ |x| x[0].to_i }.max].compact.max
 
           # Insert dummy strings not provided by caller
           ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
