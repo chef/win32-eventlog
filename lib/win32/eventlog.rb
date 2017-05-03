@@ -59,6 +59,10 @@ module Win32
     # Failure audit event, an event that records an audited security attempt
     # that fails.
     AUDIT_FAILURE = EVENTLOG_AUDIT_FAILURE
+    
+    # Regex to find inserts in format messages.
+    # See https://msdn.microsoft.com/en-us/library/windows/desktop/ms679351(v=vs.85).aspx
+    INSERT_NUMBER_REGEX = /(?<!%%)(?<=%)(\d+)/
 
     # The EventLogStruct encapsulates a single event log record.
     EventLogStruct = Struct.new('EventLogStruct', :record_number,
@@ -1080,7 +1084,7 @@ module Win32
           }
 
           # Determine higest %n insert number
-          max_insert = [num, buf.read_string.scan(/%(\d+)/).map{ |x| x[0].to_i }.max].compact.max
+          max_insert = [num, buf.read_string.scan(INSERT_NUMBER_REGEX).map{ |x| x[0].to_i }.max].compact.max
 
           # Insert dummy strings not provided by caller
           ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
