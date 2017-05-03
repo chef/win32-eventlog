@@ -311,6 +311,14 @@ class TC_Win32_EventLog < Test::Unit::TestCase
     assert_not_nil(EventLog::AUDIT_FAILURE)
   end
 
+  test "insert number regex" do
+    assert_equal([["1"]], "%1".scan(EventLog::INSERT_NUMBER_REGEX))
+    assert_equal([], "%%1".scan(EventLog::INSERT_NUMBER_REGEX))
+    assert_equal([["1234"]], "apple%1234red".scan(EventLog::INSERT_NUMBER_REGEX))
+    assert_equal([], "apple%%1234red".scan(EventLog::INSERT_NUMBER_REGEX))
+    assert_equal([["1"], ["2"], ["2"], ["5"]], "This %1 is %2 a %%4321 test%2message%%3! %5".scan(EventLog::INSERT_NUMBER_REGEX))
+  end
+
   def teardown
     @log.close rescue nil
     File.delete(@bakfile) if File.exist?(@bakfile)
