@@ -6,13 +6,13 @@ Gem::Specification.new do |spec|
   spec.authors    = ['Daniel J. Berger', 'Park Heesob']
   spec.license    = 'Artistic 2.0'
   spec.email      = 'djberg96@gmail.com'
-  spec.homepage   = 'http://github.com/djberg96/win32-eventlog'
+  spec.homepage   = 'http://github.com/chef/win32-eventlog'
   spec.summary    = 'Interface for the MS Windows Event Log.'
   spec.test_files = Dir['test/*.rb']
   spec.files      = Dir['**/*'].reject{ |f| f.include?('git') }
   spec.cert_chain = ['certs/djberg96_pub.pem']
 
-  spec.extra_rdoc_files  = ['README', 'CHANGES', 'MANIFEST', 'doc/tutorial.txt']
+  spec.extra_rdoc_files  = ['README.md', 'CHANGES', 'MANIFEST', 'doc/tutorial.txt']
 
   spec.add_dependency('ffi')
   spec.add_development_dependency('test-unit')
