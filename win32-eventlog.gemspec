@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.test_files = Dir['test/*.rb']
   spec.files      = Dir['**/*'].reject{ |f| f.include?('git') }
 
-  spec.extra_rdoc_files  = ['README.md', 'CHANGES', 'MANIFEST', 'doc/tutorial.txt']
+  spec.extra_rdoc_files  = ['README.md', 'CHANGES', 'doc/tutorial.txt']
 
   spec.add_dependency('ffi')
   spec.add_development_dependency('test-unit')
