@@ -10,9 +10,8 @@ Gem::Specification.new do |spec|
   spec.summary    = 'Interface for the MS Windows Event Log.'
   spec.test_files = Dir['test/*.rb']
   spec.files      = Dir['**/*'].reject{ |f| f.include?('git') }
-  spec.cert_chain = ['certs/djberg96_pub.pem']
 
-  spec.extra_rdoc_files  = ['README.md', 'CHANGES', 'MANIFEST', 'doc/tutorial.txt']
+  spec.extra_rdoc_files  = ['README.md', 'CHANGELOG.md', 'doc/tutorial.txt']
 
   spec.add_dependency('ffi')
   spec.add_development_dependency('test-unit')
