@@ -1,23 +1,10 @@
+require 'bundler/gem_tasks'
 require 'rake'
 require 'rake/clean'
 require 'rake/testtask'
 
 CLEAN.include('**/*.gem', '**/*.rbc')
 
-namespace :gem do
-  desc 'Create the win32-eventlog gem'
-  task :create => [:clean] do
-    spec = eval(IO.read('win32-eventlog.gemspec'))
-    Gem::Builder.new(spec).build
-  end
-
-  desc 'Install the win32-eventlog gem'
-  task :install => [:create] do
-    ruby 'win32-eventlog.gemspec'
-    file = Dir["*.gem"].first
-    sh "gem install #{file}"
-  end
-end
 
 namespace :example do
   desc 'Run the notify (tail) example program'
