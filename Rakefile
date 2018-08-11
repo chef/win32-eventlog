@@ -1,5 +1,4 @@
 require 'bundler/gem_tasks'
-require 'rake'
 require 'rake/clean'
 require 'rake/testtask'
 
@@ -47,6 +46,21 @@ namespace :test do
     t.verbose    = true
     t.test_files = Dir['test/test_mc.rb']
   end
+end
+
+begin
+  require "yard"
+  YARD::Rake::YardocTask.new(:docs)
+rescue LoadError
+  puts "yard is not available. bundle install first to make sure all dependencies are installed."
+end
+
+task :console do
+  require "irb"
+  require "irb/completion"
+  require "mixlib/archive"
+  ARGV.clear
+  IRB.start
 end
 
 task :default => :test
