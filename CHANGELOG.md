@@ -1,6 +1,16 @@
+<!-- usage documentation: http://expeditor-docs.es.chef.io/configuration/changelog/ -->
+
+# win32-eventlog Changelog
+
+<!-- latest_release 0.6.7 -->
+<!-- latest_release -->
+<!-- release_rollup since=0.6.7 -->
+<!-- release_rollup -->
+<!-- latest_stable_release -->
 ## 0.6.7 - 14-Dec-2016
 
 - The report_event method now accepts a 'user_sid' argument which can be either a sid string or a Win32::Security::SID object. Thanks go to Elias Fr�hner for the patch.
+<!-- latest_stable_release -->
 
 ## 0.6.6 - 25-Jun-2016
 
