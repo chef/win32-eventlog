@@ -2,6 +2,7 @@
 ---
 # Slack channel in Chef Software slack to send notifications about build failures, etc
 slack:
+  notify_channel: sustaining-notify
   notify_channel: chef-notify
 
 # This publish is triggered by the `built_in:publish_rubygems` artifact_action.
@@ -12,7 +13,7 @@ github:
   # This deletes the GitHub PR branch after successfully merged into the release branch
   delete_branch_on_merge: true
   # The tag format to use (e.g. v1.0.0)
-  version_tag_format: "v{{version}}"
+  version_tag_format: "win32-eventlog-{{version}}"
   # allow bumping the minor release via label
   minor_bump_labels:
     - "Expeditor: Bump Minor Version"
