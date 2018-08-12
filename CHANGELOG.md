@@ -2,9 +2,9 @@
 
 # win32-eventlog Changelog
 
-<!-- latest_release 0.6.7 -->
 <!-- latest_release -->
-<!-- release_rollup since=0.6.7 -->
+<!-- latest_release -->
+<!-- release_rollup -->
 <!-- release_rollup -->
 <!-- latest_stable_release -->
 ## 0.6.7 - 14-Dec-2016
