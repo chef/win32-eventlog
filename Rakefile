@@ -4,7 +4,6 @@ require 'rake/testtask'
 
 CLEAN.include('**/*.gem', '**/*.rbc')
 
-
 namespace :example do
   desc 'Run the notify (tail) example program'
   task :notify do
@@ -58,7 +57,6 @@ end
 task :console do
   require "irb"
   require "irb/completion"
-  require "mixlib/archive"
   ARGV.clear
   IRB.start
 end
