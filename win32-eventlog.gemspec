@@ -7,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.homepage   = 'http://github.com/chef/win32-eventlog'
   spec.summary    = 'Interface for the MS Windows Event Log.'
   spec.test_files = Dir['test/*.rb']
-  spec.files      = Dir['**/*'].reject{ |f| f.include?('git') }
+  spec.files      = `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(\..*|Gemfile|Rakefile|doc|examples|VERSION|appveyor.yml|test|spec)}) }
 
   spec.extra_rdoc_files  = ['README.md', 'CHANGELOG.md', 'doc/tutorial.txt']
 
