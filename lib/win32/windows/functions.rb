@@ -45,8 +45,17 @@ module Windows
     attach_function :FreeLibrary, [:handle], :bool
     attach_function :LoadLibraryEx, :LoadLibraryExA, [:string, :handle, :dword], :handle
     attach_function :WaitForSingleObject, [:handle, :dword], :dword
-    attach_function :Wow64DisableWow64FsRedirection, [:pointer], :bool
-    attach_function :Wow64RevertWow64FsRedirection, [:ulong], :bool
+
+    begin
+      attach_function :Wow64DisableWow64FsRedirection, [:pointer], :bool
+      attach_function :Wow64RevertWow64FsRedirection, [:ulong], :bool
+    rescue LoadError
+      # XP 32
+      def Wow64DisableWow64FsRedirection(oldValue)
+      end
+      def Wow64RevertWow64FsRedirection(oldValue)
+      end
+    end
 
     begin
       ffi_lib :wevtapi
