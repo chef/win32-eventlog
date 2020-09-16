@@ -9,16 +9,16 @@
 ############################################################################
 Thread.new { loop { sleep 0.01 } } # Allow Ctrl-C
 
-require 'win32/eventlog'
+require "win32/eventlog"
 include Win32
 
 log = EventLog.open
 
 # replace 'tail' with 'notify_change' to see the difference
-log.tail{ |struct|
-   puts "Got something"
-   p struct
-   puts
+log.tail { |struct|
+  puts "Got something"
+  p struct
+  puts
 }
 
 log.close

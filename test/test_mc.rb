@@ -6,26 +6,26 @@
 #
 # This test case should be run via the 'rake test' Rakefile task.
 ############################################################################
-require 'test-unit'
-require 'win32/mc'
-require 'ptools'
+require "test-unit"
+require "win32/mc"
+require "ptools"
 include Win32
 
 class TC_Win32_MC < Test::Unit::TestCase
   def self.startup
-    Dir.chdir(File.expand_path(File.dirname(__FILE__)))
+    Dir.chdir(File.expand_path(__dir__))
 
-    @@mc_cmd   = File.which('mc')
-    @@rc_cmd   = File.which('rc')
-    @@link_cmd = File.which('link')
+    @@mc_cmd   = File.which("mc")
+    @@rc_cmd   = File.which("rc")
+    @@link_cmd = File.which("link")
   end
 
   def setup
-    @mc = MC.new('foo.mc')
+    @mc = MC.new("foo.mc")
   end
 
   def test_01_version
-    assert_equal('0.1.6', MC::VERSION)
+    assert_equal("0.1.6", MC::VERSION)
   end
 
   def test_02_create_header
@@ -42,19 +42,19 @@ class TC_Win32_MC < Test::Unit::TestCase
 
   def test_04_create_dll_file
     omit_if(@@link_cmd.nil?, "'link' command not found - skipping")
-    omit_unless(File.exist?(@mc.res_file), 'no res_file found - skipping')
+    omit_unless(File.exist?(@mc.res_file), "no res_file found - skipping")
     assert_respond_to(@mc, :create_dll_file)
     assert_true(@mc.create_dll_file)
   end
 
   def test_05_clean
     assert_respond_to(@mc, :clean)
-    assert_nothing_raised{ @mc.clean }
+    assert_nothing_raised { @mc.clean }
   end
 
   def teardown
     @mc = nil
-    File.delete('foo.dll') if File.exist?('foo.dll')
+    File.delete("foo.dll") if File.exist?("foo.dll")
   end
 
   def self.shutdown

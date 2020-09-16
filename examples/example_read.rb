@@ -7,7 +7,7 @@
 #
 # Modify as you see fit.
 ############################################################################
-require 'win32/eventlog'
+require "win32/eventlog"
 include Win32
 
 puts "VERSION: " + EventLog::VERSION
@@ -16,25 +16,25 @@ sleep 1
 # A few different ways to read an event log
 
 el = EventLog.new("Application")
-el.read{ |log|
-   p log
+el.read { |log|
+  p log
 }
 el.close
 
-EventLog.read("Application"){ |log|
-   p log
-   puts
+EventLog.read("Application") { |log|
+  p log
+  puts
 }
 
 EventLog.open("Application") do |log|
-   log.read{ |struct|
-      p struct
-      puts
-   }
+  log.read { |struct|
+    p struct
+    puts
+  }
 end
 
 backup_file = "C:\\event_backup1"
-File.delete(backup_file) if File.exists?(backup_file)
+File.delete(backup_file) if File.exist?(backup_file)
 
 e1 = EventLog.open("System")
 puts "System log opened"
@@ -74,9 +74,9 @@ e3.close
 puts "Security log closed"
 
 e4 = EventLog.open_backup(backup_file)
-e4.read{ |elr|
-   p elr
-   puts
+e4.read { |elr|
+  p elr
+  puts
 }
 puts "Finished reading backup file"
 e4.close

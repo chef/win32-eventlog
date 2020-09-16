@@ -2,16 +2,16 @@ source "https://rubygems.org"
 
 gemspec
 
-group :docs do
-  gem "yard"
-  gem "redcarpet"
-  gem "github-markup"
-end
-
 group :test do
   gem "ptools"
   gem "test-unit"
   gem "rake"
+end
+
+group :docs do
+  gem "yard"
+  gem "redcarpet"
+  gem "github-markup"
 end
 
 group :debug do

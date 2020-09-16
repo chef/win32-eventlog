@@ -1,1 +1,1 @@
-require_relative 'win32/eventlog'
+require_relative "win32/eventlog"

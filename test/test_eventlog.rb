@@ -5,10 +5,10 @@
 # via the 'rake test' Rakefile task. This test will take a minute or two
 # to complete.
 #############################################################################
-require 'test-unit'
-require 'win32/eventlog'
-require 'socket'
-require 'tmpdir'
+require "test-unit"
+require "win32/eventlog"
+require "socket" unless defined?(Socket)
+require "tmpdir" unless defined?(Dir.mktmpdir)
 include Win32
 
 class TC_Win32_EventLog < Test::Unit::TestCase
@@ -17,72 +17,72 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   def setup
-    @log      = EventLog.new('Application')
-    @logfile  = 'temp.evt'
-    @bakfile  = File.join(Dir.tmpdir, 'test_event_log.bak')
+    @log      = EventLog.new("Application")
+    @logfile  = "temp.evt"
+    @bakfile  = File.join(Dir.tmpdir, "test_event_log.bak")
     @records  = []
     @last     = nil
   end
 
   test "version constant is set to expected value" do
-    assert_equal('0.6.7', EventLog::VERSION)
+    assert_equal("0.6.7", EventLog::VERSION)
   end
 
   test "constructor basic functionality" do
     assert_respond_to(EventLog, :new)
-    assert_nothing_raised{ EventLog.new }
+    assert_nothing_raised { EventLog.new }
   end
 
   test "constructor accepts a block" do
-    assert_nothing_raised{ EventLog.new{ |log| } }
+    assert_nothing_raised { EventLog.new { |log| } }
   end
 
   test "constructor accepts a log type" do
-    assert_nothing_raised{ EventLog.new('System') }
+    assert_nothing_raised { EventLog.new("System") }
   end
 
   test "constructor accepts a host name" do
-    assert_nothing_raised{ EventLog.new('System', @@hostname) }
+    assert_nothing_raised { EventLog.new("System", @@hostname) }
   end
 
-  #test "open is a singleton alias for new" do
+  # test "open is a singleton alias for new" do
   #  assert_alias_method(EventLog, :new, :open)
-  #end
+  # end
 
   test "constructor accepts a maximum of three arguments" do
-    assert_raises(ArgumentError){ EventLog.new('System', @@hostname, 'foo', 'bar') }
+    assert_raises(ArgumentError) { EventLog.new("System", @@hostname, "foo", "bar") }
   end
 
   test "arguments to constructor must be strings" do
-    assert_raises(TypeError){ EventLog.open(1) }
-    assert_raises(TypeError){ EventLog.open('System', 1) }
+    assert_raises(TypeError) { EventLog.open(1) }
+    assert_raises(TypeError) { EventLog.open("System", 1) }
   end
 
   test "source accessor method basic functionality" do
-    @log = EventLog.new('Application', @@hostname)
+    @log = EventLog.new("Application", @@hostname)
     assert_respond_to(@log, :source)
-    assert_equal('Application', @log.source)
+    assert_equal("Application", @log.source)
   end
 
   test "server accessor method basic functionality" do
-    @log = EventLog.new('Application', @@hostname)
+    @log = EventLog.new("Application", @@hostname)
     assert_respond_to(@log, :server)
     assert_equal(@@hostname, @log.server)
   end
 
   test "backup basic functionality" do
     assert_respond_to(@log, :backup)
-    assert_nothing_raised{ @log.backup(@bakfile) }
+    assert_nothing_raised { @log.backup(@bakfile) }
   end
 
   test "backup works as expected" do
-    assert_nothing_raised{ @log.backup(@bakfile) }
+    assert_nothing_raised { @log.backup(@bakfile) }
     assert(File.exist?(@bakfile))
   end
 
   test "backup method fails if backup file already exists" do
-    assert_nothing_raised{ @log.backup(@bakfile) }
-    assert_raise(SystemCallError){ @log.backup(@bakfile) }
+    assert_nothing_raised { @log.backup(@bakfile) }
+    assert_raise(SystemCallError) { @log.backup(@bakfile) }
   end
 
   test "open_backup basic functionality" do
@@ -90,16 +90,16 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "open_backup works as expected" do
-    EventLog.new('Application', @@hostname){ |log| log.backup(@bakfile) }
-    assert_nothing_raised{ @log = EventLog.open_backup(@bakfile) }
+    EventLog.new("Application", @@hostname) { |log| log.backup(@bakfile) }
+    assert_nothing_raised { @log = EventLog.open_backup(@bakfile) }
     assert_kind_of(EventLog, @log)
   end
 
   test "it is possible to read and close the backup log file" do
-    EventLog.new('Application', @@hostname){ |log| log.backup(@bakfile) }
+    EventLog.new("Application", @@hostname) { |log| log.backup(@bakfile) }
     @log = EventLog.open_backup(@bakfile)
-    assert_nothing_raised{ @log.read{ break } }
-    assert_nothing_raised{ @log.close }
+    assert_nothing_raised { @log.read { break } }
+    assert_nothing_raised { @log.close }
   end
 
   # Ensure that an Array is returned in non-block form and that none of the
@@ -110,11 +110,11 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   # numbers was added to ensure no dups.
   #
   test "singleton read method works as expected" do
-    assert_nothing_raised{ @array = EventLog.read }
+    assert_nothing_raised { @array = EventLog.read }
     assert_kind_of(Array, @array)
 
     record_numbers = []
-    @array.each{ |log|
+    @array.each { |log|
       assert_not_nil(log.description)
       assert_equal(false, record_numbers.include?(log.record_number))
       record_numbers << log.record_number
@@ -124,52 +124,52 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   # I've added explicit breaks because an event log could be rather large.
   #
   test "singleton read method does not require any arguments" do
-    assert_nothing_raised{ EventLog.read{ break } }
+    assert_nothing_raised { EventLog.read { break } }
   end
 
   test "singleton read method accepts a log type" do
-    assert_nothing_raised{ EventLog.read("Application"){ break } }
+    assert_nothing_raised { EventLog.read("Application") { break } }
   end
 
   test "singleton read method accepts a server argument" do
-    assert_nothing_raised{ EventLog.read("Application", nil){ break } }
+    assert_nothing_raised { EventLog.read("Application", nil) { break } }
   end
 
   test "singleton read method accepts a flags argument" do
-    assert_nothing_raised{ EventLog.read("Application", nil, nil){ break } }
+    assert_nothing_raised { EventLog.read("Application", nil, nil) { break } }
   end
 
   test "singleton read method accepts an offset argument" do
-    assert_nothing_raised{ EventLog.read("Application", nil, nil, 10){ break } }
+    assert_nothing_raised { EventLog.read("Application", nil, nil, 10) { break } }
   end
 
   test "singleton read method accepts a maximum of four arguments" do
-    assert_raises(ArgumentError){
-      EventLog.read("Application", nil, nil, nil, nil){}
+    assert_raises(ArgumentError) {
+      EventLog.read("Application", nil, nil, nil, nil) {}
     }
   end
 
   test "instance method read basic functionality" do
     assert_respond_to(@log, :read)
-    assert_nothing_raised{ @log.read{ break } }
+    assert_nothing_raised { @log.read { break } }
   end
 
   test "instance method read accepts flags" do
     flags = EventLog::FORWARDS_READ | EventLog::SEQUENTIAL_READ
-    assert_nothing_raised{ @log.read(flags){ break } }
+    assert_nothing_raised { @log.read(flags) { break } }
   end
 
   test "instance method read accepts an offset" do
-    assert_nothing_raised{ @log.read(nil, 500){ break } }
+    assert_nothing_raised { @log.read(nil, 500) { break } }
   end
 
   test "instance method read accepts a maximum of two arguments" do
-    assert_raises(ArgumentError){ @log.read(nil, 500, 'foo') }
+    assert_raises(ArgumentError) { @log.read(nil, 500, "foo") }
   end
 
   test "read_last_event method basic functionality" do
     assert_respond_to(@log, :read_last_event)
-    assert_nothing_raised{ @log.read_last_event }
+    assert_nothing_raised { @log.read_last_event }
   end
 
   test "read_last_event returns the expected results" do
@@ -177,12 +177,12 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "seek_read flag plus forwards_read flag works as expected" do
-    assert_nothing_raised{ @last = @log.read[-10] }
+    assert_nothing_raised { @last = @log.read[-10] }
 
     omit_unless(@last, "No records found, skipping")
     flags = EventLog::SEEK_READ | EventLog::FORWARDS_READ
 
-    assert_nothing_raised{
+    assert_nothing_raised {
       @records = EventLog.read(nil, nil, flags, @last.record_number)
     }
 
@@ -194,44 +194,44 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   #
   test "seek_read flag plus backwards_read flag works as expected" do
     flags = EventLog::SEEK_READ | EventLog::BACKWARDS_READ
-    assert_nothing_raised{ @last = @log.oldest_record_number + 10 }
-    assert_nothing_raised{ @records = EventLog.read(nil, nil, flags, @last) }
-    assert_true([0,11].include?(@records.length))
+    assert_nothing_raised { @last = @log.oldest_record_number + 10 }
+    assert_nothing_raised { @records = EventLog.read(nil, nil, flags, @last) }
+    assert_true([0, 11].include?(@records.length))
   end
 
   test "the eventlog struct returned by read is frozen" do
-    EventLog.read{ |log| @entry = log; break }
+    EventLog.read { |log| @entry = log; break }
     assert_true(@entry.frozen?)
   end
 
   test "server method basic functionality" do
     assert_respond_to(@log, :server)
-    assert_nothing_raised{ @log.server }
+    assert_nothing_raised { @log.server }
     assert_nil(@log.server)
   end
 
   test "server method is readonly" do
-    assert_raises(NoMethodError){ @log.server = 'foo' }
+    assert_raises(NoMethodError) { @log.server = "foo" }
   end
 
   test "source method basic functionality" do
     assert_respond_to(@log, :source)
-    assert_nothing_raised{ @log.source }
+    assert_nothing_raised { @log.source }
     assert_kind_of(String, @log.source)
   end
 
   test "source method is readonly" do
-    assert_raises(NoMethodError){ @log.source = 'foo' }
+    assert_raises(NoMethodError) { @log.source = "foo" }
   end
 
   test "file method basic functionality" do
     assert_respond_to(@log, :file)
-    assert_nothing_raised{ @log.file }
+    assert_nothing_raised { @log.file }
     assert_nil(@log.file)
   end
 
   test "file method is readonly" do
-    assert_raises(NoMethodError){ @log.file = 'foo' }
+    assert_raises(NoMethodError) { @log.file = "foo" }
   end
 
   # Since I don't want to actually clear anyone's event log, I can't really
@@ -242,7 +242,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "full method basic functionality" do
     assert_respond_to(@log, :full?)
-    assert_nothing_raised{ @log.full? }
+    assert_nothing_raised { @log.full? }
   end
 
   test "full method returns a boolean" do
@@ -251,19 +251,19 @@ class TC_Win32_EventLog < Test::Unit::TestCase
 
   test "close method basic functionality" do
     assert_respond_to(@log, :close)
-    assert_nothing_raised{ @log.close }
+    assert_nothing_raised { @log.close }
   end
 
   test "oldest_record_number basic functionality" do
     assert_respond_to(@log, :oldest_record_number)
-    assert_nothing_raised{ @log.oldest_record_number }
-    assert_kind_of(Fixnum, @log.oldest_record_number)
+    assert_nothing_raised { @log.oldest_record_number }
+    assert_kind_of(Integer, @log.oldest_record_number)
   end
 
   test "total_records basic functionality" do
     assert_respond_to(@log, :total_records)
-    assert_nothing_raised{ @log.total_records }
-    assert_kind_of(Fixnum, @log.total_records)
+    assert_nothing_raised { @log.total_records }
+    assert_kind_of(Integer, @log.total_records)
   end
 
   # We can't test that this method actually executes properly since it goes
@@ -271,7 +271,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   #
   test "tail basic functionality" do
     assert_respond_to(@log, :tail)
-    assert_raises(ArgumentError){ @log.tail }
+    assert_raises(ArgumentError) { @log.tail }
   end
 
   # We can't test that this method actually executes properly since it goes
@@ -279,7 +279,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   #
   test "notify_change basic functionality" do
     assert_respond_to(@log, :notify_change)
-    assert_raises(ArgumentError){ @log.notify_change }
+    assert_raises(ArgumentError) { @log.notify_change }
   end
 
   # I can't really do more in depth testing for this method since there
@@ -287,7 +287,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   #
   test "report_event basic functionality" do
     assert_respond_to(@log, :report_event)
-    assert_raises(ArgumentError){ @log.report_event }
+    assert_raises(ArgumentError) { @log.report_event }
   end
 
   test "write is an alias for report_event" do
