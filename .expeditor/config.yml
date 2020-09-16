@@ -4,7 +4,7 @@
 slack:
   notify_channel:
     - sustaining-notify
-    - chef-notify
+    - chef-infra-notify
 
 # This publish is triggered by the `built_in:publish_rubygems` artifact_action.
 rubygems:
@@ -18,6 +18,15 @@ github:
   # allow bumping the minor release via label
   minor_bump_labels:
     - "Expeditor: Bump Version Minor"
+  # allow bumping the major release via label
+  major_bump_labels:
+    - "Expeditor: Bump Version Major"
+  # Which Github branches to build releases from, and what versions
+  # (as determined by the value in the VERSION file) those branches are responsible
+  # for building.
+  release_branch:
+    - master:
+        version_constraint: "*"
 
 changelog:
   rollup_header: Changes not yet released to rubygems.org
@@ -41,3 +50,8 @@ promote:
   actions:
     - built_in:rollover_changelog
     - built_in:publish_rubygems
+
+pipelines:
+  - verify:
+      description: Pull Request validation tests
+      public: true

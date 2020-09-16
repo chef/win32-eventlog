@@ -1,0 +1,20 @@
+---
+expeditor:
+  cached_folders:
+    - vendor
+  defaults:
+    buildkite:
+      retry:
+        automatic:
+          limit: 1
+      timeout_in_minutes: 30
+
+# why do we test on Linux? It's the easiest way to run specs quickly on multiple ruby versions so we test on Windows and then on various ruby releases using Linux agents
+steps:
+- label: lint-chefstyle
+  command:
+    - .expeditor/run_linux_tests.sh "rake style"
+  expeditor:
+    executor:
+      docker:
+        image: ruby:2.4-buster
