@@ -1,28 +1,28 @@
-require 'bundler/gem_tasks'
-require 'rake/clean'
-require 'rake/testtask'
+require "bundler/gem_tasks"
+require "rake/clean"
+require "rake/testtask"
 
-CLEAN.include('**/*.gem', '**/*.rbc')
+CLEAN.include("**/*.gem", "**/*.rbc")
 
 namespace :example do
-  desc 'Run the notify (tail) example program'
+  desc "Run the notify (tail) example program"
   task :notify do
-    ruby '-Ilib examples/example_notify.rb'
+    ruby "-Ilib examples/example_notify.rb"
   end
 
-  desc 'Run the read example program'
+  desc "Run the read example program"
   task :read do
-    ruby '-Ilib examples/example_read.rb'
+    ruby "-Ilib examples/example_read.rb"
   end
 
-  desc 'Run the write example program'
+  desc "Run the write example program"
   task :write do
-    ruby '-Ilib examples/example_write.rb'
+    ruby "-Ilib examples/example_write.rb"
   end
 end
 
 namespace :event_source do
-  desc 'Install the RubyMsg event source'
+  desc "Install the RubyMsg event source"
   task :install do
     sh "ruby -Ilib misc/install_msg.rb"
   end
@@ -37,18 +37,18 @@ namespace :test do
   Rake::TestTask.new(:eventlog) do |t|
     t.warning    = true
     t.verbose    = true
-    t.test_files = Dir['test/test_eventlog.rb']
+    t.test_files = Dir["test/test_eventlog.rb"]
   end
 
   Rake::TestTask.new(:mc) do |t|
     t.warning    = true
     t.verbose    = true
-    t.test_files = Dir['test/test_mc.rb']
+    t.test_files = Dir["test/test_mc.rb"]
   end
 end
 
 begin
-  require "yard"
+  require "yard" unless defined?(YARD)
   YARD::Rake::YardocTask.new(:docs)
 rescue LoadError
   puts "yard is not available. bundle install first to make sure all dependencies are installed."
@@ -61,4 +61,4 @@ task :console do
   IRB.start
 end
 
-task :default => :test
+task default: :test

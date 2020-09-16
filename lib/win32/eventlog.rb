@@ -1,6 +1,6 @@
-require_relative 'windows/constants'
-require_relative 'windows/structs'
-require_relative 'windows/functions'
+require_relative "windows/constants"
+require_relative "windows/structs"
+require_relative "windows/functions"
 
 # The Win32 module serves as a namespace only.
 module Win32
@@ -18,7 +18,7 @@ module Win32
     class Error < StandardError; end
 
     # The version of the win32-eventlog library
-    VERSION = '0.6.7'.freeze
+    VERSION = "0.6.7".freeze
 
     # The log is read in chronological order, i.e. oldest to newest.
     FORWARDS_READ = EVENTLOG_FORWARDS_READ
@@ -59,16 +59,15 @@ module Win32
     # Failure audit event, an event that records an audited security attempt
     # that fails.
     AUDIT_FAILURE = EVENTLOG_AUDIT_FAILURE
-    
+
     # Regex to find inserts in format messages.
     # See https://msdn.microsoft.com/en-us/library/windows/desktop/ms679351(v=vs.85).aspx
-    INSERT_NUMBER_REGEX = /(?<!%%)(?<=%)(\d+)/
+    INSERT_NUMBER_REGEX = /(?<!%%)(?<=%)(\d+)/.freeze
 
     # The EventLogStruct encapsulates a single event log record.
-    EventLogStruct = Struct.new('EventLogStruct', :record_number,
+    EventLogStruct = Struct.new("EventLogStruct", :record_number,
       :time_generated, :time_written, :event_id, :event_type, :category,
-      :source, :computer, :user, :string_inserts, :description
-    )
+      :source, :computer, :user, :string_inserts, :description)
 
     # The name of the event log source.  This will typically be
     # 'Application', 'System' or 'Security', but could also refer to
@@ -95,20 +94,23 @@ module Win32
     # logging service opens the 'Application' log file.  This is the
     # behavior of the underlying Windows function, not my own doing.
     #
-    def initialize(source = 'Application', server = nil, file = nil)
-      @source = source || 'Application' # In case of explicit nil
+    def initialize(source = "Application", server = nil, file = nil)
+      @source = source || "Application" # In case of explicit nil
       @server = server
       @file   = file
 
       # Avoid potential segfaults from win32-api
       raise TypeError unless @source.is_a?(String)
-      raise TypeError unless @server.is_a?(String) if @server
+
+      if @server
+        raise TypeError unless @server.is_a?(String)
+      end
 
       if file.nil?
-        function = 'OpenEventLog'
+        function = "OpenEventLog"
         @handle = OpenEventLog(@server, @source)
       else
-        function = 'OpenBackupEventLog'
+        function = "OpenBackupEventLog"
         @handle = OpenBackupEventLog(@server, @file)
       end
 
@@ -134,7 +136,7 @@ module Win32
     # Nearly identical to EventLog.open, except that the source is a backup
     # file and not an event source (and there is no default).
     #
-    def self.open_backup(file, source = 'Application', server = nil, &block)
+    def self.open_backup(file, source = "Application", server = nil, &block)
       @file   = file
       @source = source
       @server = server
@@ -142,9 +144,12 @@ module Win32
       # Avoid potential segfaults from win32-api
       raise TypeError unless @file.is_a?(String)
       raise TypeError unless @source.is_a?(String)
-      raise TypeError unless @server.is_a?(String) if @server
 
-      self.new(source, server, file, &block)
+      if @server
+        raise TypeError unless @server.is_a?(String)
+      end
+
+      new(source, server, file, &block)
     end
 
     # Adds an event source to the registry. Returns the disposition, which
@@ -175,7 +180,7 @@ module Win32
     def self.add_event_source(args)
       raise TypeError unless args.is_a?(Hash)
 
-      valid_keys = %w[
+      valid_keys = %w{
         source
         key_name
         category_count
@@ -183,34 +188,35 @@ module Win32
         category_message_file
         parameter_message_file
         supported_types
-      ]
+      }
 
       key_base = "SYSTEM\\CurrentControlSet\\Services\\EventLog\\"
 
       # Default values
       hash = {
-        'source'          => 'Application',
-        'supported_types' => ERROR_TYPE | WARN_TYPE | INFO_TYPE
+        "source"          => "Application",
+        "supported_types" => ERROR_TYPE | WARN_TYPE | INFO_TYPE,
       }
 
       # Validate the keys, and convert symbols and case to lowercase strings.
-      args.each{ |key, val|
+      args.each { |key, val|
         key = key.to_s.downcase
         unless valid_keys.include?(key)
           raise ArgumentError, "invalid key '#{key}'"
         end
+
         hash[key] = val
       }
 
       # The key_name must be specified
-      unless hash['key_name']
-        raise ArgumentError, 'no event_type specified'
+      unless hash["key_name"]
+        raise ArgumentError, "no event_type specified"
       end
 
       hkey = FFI::MemoryPointer.new(:uintptr_t)
       disposition = FFI::MemoryPointer.new(:ulong)
 
-      key = key_base + hash['source']
+      key = key_base + hash["source"]
 
       rv = RegCreateKeyEx(
         HKEY_LOCAL_MACHINE,
@@ -225,16 +231,16 @@ module Win32
       )
 
       if rv != ERROR_SUCCESS
-        raise SystemCallError.new('RegCreateKeyEx', rv)
+        raise SystemCallError.new("RegCreateKeyEx", rv)
       end
 
       hkey = hkey.read_pointer.to_i
-      data = "%SystemRoot%\\System32\\config\\#{hash['source']}.evt"
+      data = "%SystemRoot%\\System32\\config\\#{hash["source"]}.evt"
 
       begin
         rv = RegSetValueEx(
           hkey,
-          'File',
+          "File",
           0,
           REG_EXPAND_SZ,
           data,
@@ -242,7 +248,7 @@ module Win32
         )
 
         if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', rv)
+          raise SystemCallError.new("RegSetValueEx", rv)
         end
       ensure
         RegCloseKey(hkey)
@@ -251,7 +257,7 @@ module Win32
       hkey = FFI::MemoryPointer.new(:uintptr_t)
       disposition = FFI::MemoryPointer.new(:ulong)
 
-      key  = key_base << hash['source'] << "\\" << hash['key_name']
+      key = key_base << hash["source"] << "\\" << hash["key_name"]
 
       begin
         rv = RegCreateKeyEx(
@@ -267,17 +273,17 @@ module Win32
         )
 
         if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegCreateKeyEx', rv)
+          raise SystemCallError.new("RegCreateKeyEx", rv)
         end
 
         hkey = hkey.read_pointer.to_i
 
-        if hash['category_count']
-          data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['category_count'])
+        if hash["category_count"]
+          data = FFI::MemoryPointer.new(:ulong).write_ulong(hash["category_count"])
 
           rv = RegSetValueEx(
             hkey,
-            'CategoryCount',
+            "CategoryCount",
             0,
             REG_DWORD,
             data,
@@ -285,17 +291,17 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
+            raise SystemCallError.new("RegSetValueEx", rv)
           end
         end
 
-        if hash['category_message_file']
-          data = File.expand_path(hash['category_message_file'])
+        if hash["category_message_file"]
+          data = File.expand_path(hash["category_message_file"])
           data = FFI::MemoryPointer.from_string(data)
 
           rv = RegSetValueEx(
             hkey,
-            'CategoryMessageFile',
+            "CategoryMessageFile",
             0,
             REG_EXPAND_SZ,
             data,
@@ -303,17 +309,17 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
+            raise SystemCallError.new("RegSetValueEx", rv)
           end
         end
 
-        if hash['event_message_file']
-          data = File.expand_path(hash['event_message_file'])
+        if hash["event_message_file"]
+          data = File.expand_path(hash["event_message_file"])
           data = FFI::MemoryPointer.from_string(data)
 
           rv = RegSetValueEx(
             hkey,
-            'EventMessageFile',
+            "EventMessageFile",
             0,
             REG_EXPAND_SZ,
             data,
@@ -321,17 +327,17 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
+            raise SystemCallError.new("RegSetValueEx", rv)
           end
         end
 
-        if hash['parameter_message_file']
-          data = File.expand_path(hash['parameter_message_file'])
+        if hash["parameter_message_file"]
+          data = File.expand_path(hash["parameter_message_file"])
           data = FFI::MemoryPointer.from_string(data)
 
           rv = RegSetValueEx(
             hkey,
-            'ParameterMessageFile',
+            "ParameterMessageFile",
             0,
             REG_EXPAND_SZ,
             data,
@@ -339,15 +345,15 @@ module Win32
           )
 
           if rv != ERROR_SUCCESS
-            raise SystemCallError.new('RegSetValueEx', rv)
+            raise SystemCallError.new("RegSetValueEx", rv)
           end
         end
 
-        data = FFI::MemoryPointer.new(:ulong).write_ulong(hash['supported_types'])
+        data = FFI::MemoryPointer.new(:ulong).write_ulong(hash["supported_types"])
 
         rv = RegSetValueEx(
           hkey,
-          'TypesSupported',
+          "TypesSupported",
           0,
           REG_DWORD,
           data,
@@ -355,7 +361,7 @@ module Win32
         )
 
         if rv != ERROR_SUCCESS
-          raise SystemCallError.new('RegSetValueEx', rv)
+          raise SystemCallError.new("RegSetValueEx", rv)
         end
       ensure
         RegCloseKey(hkey)
@@ -370,7 +376,7 @@ module Win32
     def backup(file)
       raise TypeError unless file.is_a?(String)
       unless BackupEventLog(@handle, file)
-        raise SystemCallError.new('BackupEventLog', FFI.errno)
+        raise SystemCallError.new("BackupEventLog", FFI.errno)
       end
     end
 
@@ -378,10 +384,12 @@ module Win32
     # event log to that file first.
     #
     def clear(backup_file = nil)
-      raise TypeError unless backup_file.is_a?(String) if backup_file
+      if backup_file
+        raise TypeError unless backup_file.is_a?(String)
+      end
 
       unless ClearEventLog(@handle, backup_file)
-        raise SystemCallError.new('ClearEventLog', FFI.errno)
+        raise SystemCallError.new("ClearEventLog", FFI.errno)
       end
     end
 
@@ -399,7 +407,7 @@ module Win32
       needed = FFI::MemoryPointer.new(:ulong)
 
       unless GetEventLogInformation(@handle, 0, ptr, ptr.size, needed)
-        raise SystemCallError.new('GetEventLogInformation', FFI.errno)
+        raise SystemCallError.new("GetEventLogInformation", FFI.errno)
       end
 
       ptr.read_ulong != 0
@@ -413,7 +421,7 @@ module Win32
       rec = FFI::MemoryPointer.new(:ulong)
 
       unless GetOldestEventLogRecord(@handle, rec)
-        raise SystemCallError.new('GetOldestEventLogRecord', FFI.errno)
+        raise SystemCallError.new("GetOldestEventLogRecord", FFI.errno)
       end
 
       rec.read_ulong
@@ -425,7 +433,7 @@ module Win32
       total = FFI::MemoryPointer.new(:ulong)
 
       unless GetNumberOfEventLogRecords(@handle, total)
-        raise SystemCallError.new('GetNumberOfEventLogRecords', FFI.errno)
+        raise SystemCallError.new("GetNumberOfEventLogRecords", FFI.errno)
       end
 
       total.read_ulong
@@ -439,7 +447,7 @@ module Win32
     #
     def notify_change(&block)
       unless block_given?
-        raise ArgumentError, 'block missing for notify_change'
+        raise ArgumentError, "block missing for notify_change"
       end
 
       # Reopen the handle because the NotifyChangeEventLog() function will
@@ -447,20 +455,20 @@ module Win32
       @handle = OpenEventLog(@server, @source)
 
       if @handle == 0
-        raise SystemCallError.new('OpenEventLog', FFI.errno)
+        raise SystemCallError.new("OpenEventLog", FFI.errno)
       end
 
       event = CreateEvent(nil, 0, 0, nil)
 
       unless NotifyChangeEventLog(@handle, event)
-        raise SystemCallError.new('NotifyChangeEventLog', FFI.errno)
+        raise SystemCallError.new("NotifyChangeEventLog", FFI.errno)
       end
 
       wait_result = WaitForSingleObject(event, INFINITE)
 
       begin
         if wait_result == WAIT_FAILED
-          raise SystemCallError.new('WaitForSingleObject', FFI.errno)
+          raise SystemCallError.new("WaitForSingleObject", FFI.errno)
         else
           last = read_last_event
           block.call(last)
@@ -486,18 +494,18 @@ module Win32
     #
     def tail(frequency = 5)
       unless block_given?
-        raise ArgumentError, 'block missing for tail'
+        raise ArgumentError, "block missing for tail"
       end
 
-      old_total = total_records()
+      old_total = total_records
       flags     = FORWARDS_READ | SEEK_READ
       rec_num   = read_last_event.record_number
 
-      while true
-        new_total = total_records()
+      loop do
+        new_total = total_records
         if new_total != old_total
-          rec_num = oldest_record_number() if full?
-          read(flags, rec_num).each{ |log| yield log }
+          rec_num = oldest_record_number if full?
+          read(flags, rec_num).each { |log| yield log }
           old_total = new_total
           rec_num   = read_last_event.record_number + 1
         end
@@ -546,19 +554,20 @@ module Win32
       if @server
         hkey = FFI::MemoryPointer.new(:uintptr_t)
         if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-          raise SystemCallError.new('RegConnectRegistry', FFI.errno)
+          raise SystemCallError.new("RegConnectRegistry", FFI.errno)
         end
+
         lkey = hkey.read_pointer.to_i
       end
 
       while ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed) ||
-        FFI.errno == ERROR_INSUFFICIENT_BUFFER
+          FFI.errno == ERROR_INSUFFICIENT_BUFFER
 
         if FFI.errno == ERROR_INSUFFICIENT_BUFFER
           needed = needed.read_ulong / EVENTLOGRECORD.size
           buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
           unless ReadEventLog(@handle, flags, offset, buf, buf.size, read, needed)
-            raise SystemCallError.new('ReadEventLog', FFI.errno)
+            raise SystemCallError.new("ReadEventLog", FFI.errno)
           end
         end
 
@@ -599,7 +608,7 @@ module Win32
           buf += length
         end
 
-        buf  = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
+        buf = FFI::MemoryPointer.new(:char, BUFFER_SIZE)
       end
 
       block_given? ? nil : array
@@ -609,10 +618,10 @@ module Win32
     # method, except that it takes a +source+ and +server+ as the first two
     # arguments.
     #
-    def self.read(source='Application', server=nil, flags=nil, offset=0)
-      self.new(source, server){ |log|
+    def self.read(source = "Application", server = nil, flags = nil, offset = 0)
+      new(source, server) { |log|
         if block_given?
-          log.read(flags, offset){ |els| yield els }
+          log.read(flags, offset) { |els| yield els }
         else
           return log.read(flags, offset)
         end
@@ -643,41 +652,42 @@ module Win32
     def report_event(args)
       raise TypeError unless args.is_a?(Hash)
 
-      valid_keys  = %w[source event_id category data event_type user_sid]
+      valid_keys  = %w{source event_id category data event_type user_sid}
       num_strings = 0
 
       # Default values
       hash = {
-        'source'   => @source,
-        'event_id' => 0,
-        'category' => 0,
-        'data'     => 0,
-        'user_sid' => nil
+        "source"   => @source,
+        "event_id" => 0,
+        "category" => 0,
+        "data"     => 0,
+        "user_sid" => nil,
       }
 
       # Validate the keys, and convert symbols and case to lowercase strings.
-      args.each{ |key, val|
+      args.each { |key, val|
         key = key.to_s.downcase
         unless valid_keys.include?(key)
           raise ArgumentError, "invalid key '#{key}'"
         end
+
         hash[key] = val
       }
 
       # The event_type must be specified
-      unless hash['event_type']
-        raise ArgumentError, 'no event_type specified'
+      unless hash["event_type"]
+        raise ArgumentError, "no event_type specified"
       end
 
-      handle = RegisterEventSource(@server, hash['source'])
+      handle = RegisterEventSource(@server, hash["source"])
 
       if handle == 0
-        raise SystemCallError.new('RegisterEventSource', FFI.errno)
+        raise SystemCallError.new("RegisterEventSource", FFI.errno)
       end
 
-      if hash['data'].is_a?(String)
+      if hash["data"].is_a?(String)
         strptrs = []
-        strptrs << FFI::MemoryPointer.from_string(hash['data'])
+        strptrs << FFI::MemoryPointer.from_string(hash["data"])
         strptrs << nil
 
         data = FFI::MemoryPointer.new(:pointer, strptrs.size)
@@ -687,10 +697,10 @@ module Win32
         end
 
         num_strings = 1
-      elsif hash['data'].is_a?(Array)
+      elsif hash["data"].is_a?(Array)
         strptrs = []
 
-        hash['data'].each{ |str|
+        hash["data"].each { |str|
           strptrs << FFI::MemoryPointer.from_string(str)
         }
 
@@ -701,14 +711,14 @@ module Win32
           data[i].put_pointer(0, p)
         end
 
-        num_strings = hash['data'].size
+        num_strings = hash["data"].size
       else
         data = nil
         num_strings = 0
       end
 
-      if hash['user_sid']
-        sid = hash['user_sid'].respond_to?(:sid) ? hash['user_sid'].sid : hash['user_sid']
+      if hash["user_sid"]
+        sid = hash["user_sid"].respond_to?(:sid) ? hash["user_sid"].sid : hash["user_sid"]
         user_sid = FFI::MemoryPointer.from_string(sid)
       else
         user_sid = nil
@@ -716,9 +726,9 @@ module Win32
 
       bool = ReportEvent(
         handle,
-        hash['event_type'],
-        hash['category'],
-        hash['event_id'],
+        hash["event_type"],
+        hash["category"],
+        hash["event_id"],
         user_sid,
         num_strings,
         0,
@@ -727,7 +737,7 @@ module Win32
       )
 
       unless bool
-        raise SystemCallError.new('ReportEvent', FFI.errno)
+        raise SystemCallError.new("ReportEvent", FFI.errno)
       end
     end
 
@@ -748,18 +758,19 @@ module Win32
           needed = needed.read_ulong / EVENTLOGRECORD.size
           buf = FFI::MemoryPointer.new(EVENTLOGRECORD, needed)
           unless ReadEventLog(@handle, flags, 0, buf, buf.size, read, needed)
-            raise SystemCallError.new('ReadEventLog', FFI.errno)
+            raise SystemCallError.new("ReadEventLog", FFI.errno)
           end
         else
-          raise SystemCallError.new('ReadEventLog', FFI.errno)
+          raise SystemCallError.new("ReadEventLog", FFI.errno)
         end
       end
 
       if @server
         hkey = FFI::MemoryPointer.new(:uintptr_t)
         if RegConnectRegistry(@server, HKEY_LOCAL_MACHINE, hkey) != 0
-          raise SystemCallError.new('RegConnectRegistry', FFI.errno)
+          raise SystemCallError.new("RegConnectRegistry", FFI.errno)
         end
+
         lkey = hkey.read_pointer.to_i
       end
 
@@ -813,7 +824,7 @@ module Win32
       )
 
       # Return nil if the lookup failed
-      return val ? name.read_string : nil
+      val ? name.read_string : nil
     end
 
     # Private method that converts a numeric event type into a human
@@ -822,15 +833,15 @@ module Win32
     def get_event_type(event)
       case event
         when EVENTLOG_ERROR_TYPE
-          'error'
+          "error"
         when EVENTLOG_WARNING_TYPE
-          'warning'
+          "warning"
         when EVENTLOG_INFORMATION_TYPE, EVENTLOG_SUCCESS
-          'information'
+          "information"
         when EVENTLOG_AUDIT_SUCCESS
-          'audit_success'
+          "audit_success"
         when EVENTLOG_AUDIT_FAILURE
-          'audit_failure'
+          "audit_failure"
         else
           nil
       end
@@ -842,12 +853,12 @@ module Win32
     #
     def get_description(buf, event_source, lkey)
       rec     = EVENTLOGRECORD.new(buf)
-      str     = buf.read_bytes(buf.size)[rec[:StringOffset] .. -1]
+      str     = buf.read_bytes(buf.size)[rec[:StringOffset]..-1]
       num     = rec[:NumStrings]
       hkey    = FFI::MemoryPointer.new(:uintptr_t)
       key     = BASE_KEY + "#{@source}\\#{event_source}"
       buf     = FFI::MemoryPointer.new(:char, 8192)
-      va_list = va_list0 = (num == 0) ? [] : str.unpack('Z*' * num)
+      va_list = va_list0 = (num == 0) ? [] : str.unpack("Z*" * num)
 
       begin
         old_wow_val = FFI::MemoryPointer.new(:int)
@@ -858,7 +869,7 @@ module Win32
 
         if RegOpenKeyEx(lkey, key, 0, KEY_READ, hkey) == 0
           hkey  = hkey.read_pointer.to_i
-          value = 'providerGuid'
+          value = "providerGuid"
 
           guid_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
           size_ptr = FFI::MemoryPointer.new(:ulong)
@@ -872,10 +883,10 @@ module Win32
 
             guid_ptr.free
 
-            if RegOpenKeyEx(lkey, key, 0, KEY_READ|0x100, hkey2) == 0
-              hkey2  = hkey2.read_pointer.to_i
+            if RegOpenKeyEx(lkey, key, 0, KEY_READ | 0x100, hkey2) == 0
+              hkey2 = hkey2.read_pointer.to_i
 
-              value = 'ParameterMessageFile'
+              value = "ParameterMessageFile"
               file_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
               size_ptr.clear.write_ulong(file_ptr.size)
 
@@ -886,7 +897,7 @@ module Win32
                 param_exe = exe.read_string
               end
 
-              value = 'MessageFileName'
+              value = "MessageFileName"
 
               file_ptr.clear
               size_ptr.clear.write_ulong(file_ptr.size)
@@ -904,7 +915,7 @@ module Win32
               size_ptr.free
             end
           else
-            value = 'ParameterMessageFile'
+            value = "ParameterMessageFile"
             file_ptr = FFI::MemoryPointer.new(:char, MAX_SIZE)
             size_ptr.clear.write_ulong(file_ptr.size)
 
@@ -915,7 +926,7 @@ module Win32
               param_exe = exe.read_string
             end
 
-            value = 'EventMessageFile'
+            value = "EventMessageFile"
 
             file_ptr.clear
             size_ptr.clear.write_ulong(file_ptr.size)
@@ -933,7 +944,7 @@ module Win32
 
           RegCloseKey(hkey)
         else
-          wevent_source = (event_source + 0.chr).encode('UTF-16LE')
+          wevent_source = (event_source + 0.chr).encode("UTF-16LE")
 
           begin
             pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, nil, 1024, 0)
@@ -952,7 +963,7 @@ module Win32
               )
 
               unless bool
-                raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
+                raise SystemCallError.new("EvtGetPublisherMetadataProperty", FFI.errno)
               end
 
               file = buf2.read_string[16..-1]
@@ -973,7 +984,7 @@ module Win32
               )
 
               unless bool
-                raise SystemCallError.new('EvtGetPublisherMetadataProperty', FFI.errno)
+                raise SystemCallError.new("EvtGetPublisherMetadataProperty", FFI.errno)
               end
 
               exe.clear
@@ -991,13 +1002,13 @@ module Win32
           end
         end
 
-        if param_exe != nil
-          va_list = va_list0.map{ |v|
+        unless param_exe.nil?
+          va_list = va_list0.map { |v|
             va = v
 
-            v.scan(/%%(\d+)/).uniq.each{ |x|
-              param_exe.split(';').each{ |lfile|
-                hmodule  = LoadLibraryEx(
+            v.scan(/%%(\d+)/).uniq.each { |x|
+              param_exe.split(";").each { |lfile|
+                hmodule = LoadLibraryEx(
                   lfile,
                   0,
                   DONT_RESOLVE_DLL_REFERENCES | LOAD_LIBRARY_AS_DATAFILE
@@ -1039,11 +1050,11 @@ module Win32
           }
         end
 
-        if message_exe != nil
+        unless message_exe.nil?
           buf.clear
 
           # Try to retrieve message *without* expanding the inserts yet
-          message_exe.split(';').each{ |lfile|
+          message_exe.split(";").each { |lfile|
             hmodule = LoadLibraryEx(
               lfile,
               0,
@@ -1084,26 +1095,26 @@ module Win32
           }
 
           # Determine higest %n insert number
-          max_insert = [num, buf.read_string.scan(INSERT_NUMBER_REGEX).map{ |x| x[0].to_i }.max].compact.max
+          max_insert = [num, buf.read_string.scan(INSERT_NUMBER_REGEX).map { |x| x[0].to_i }.max].compact.max
 
           # Insert dummy strings not provided by caller
-          ((num+1)..(max_insert)).each{ |x| va_list.push("%#{x}") }
+          ((num + 1)..(max_insert)).each { |x| va_list.push("%#{x}") }
 
           if num == 0
             va_list_ptr = FFI::MemoryPointer.new(:pointer)
           else
             strptrs = []
-            va_list.each{ |x| strptrs << FFI::MemoryPointer.from_string(x) }
+            va_list.each { |x| strptrs << FFI::MemoryPointer.from_string(x) }
             strptrs << nil
 
             va_list_ptr = FFI::MemoryPointer.new(:pointer, strptrs.size)
 
-            strptrs.each_with_index{ |p, i|
+            strptrs.each_with_index { |p, i|
               va_list_ptr[i].put_pointer(0, p)
             }
           end
 
-          message_exe.split(';').each{ |lfile|
+          message_exe.split(";").each { |lfile|
             hmodule = LoadLibraryEx(
               lfile,
               0,

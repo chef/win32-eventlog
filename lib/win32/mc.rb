@@ -5,10 +5,10 @@ module Win32
   class MC
 
     # Raised if any of the MC methods fail.
-    class Error < StandardError; end;
+    class Error < StandardError; end
 
     # The version of the win32-mc library.
-    VERSION = '0.1.6'
+    VERSION = "0.1.6".freeze
 
     # The name of the message category file initially processed.
     attr_accessor :mc_file
@@ -27,19 +27,19 @@ module Win32
     # of +mc_file+ is used to generate their names, with .res and .dll
     # extensions, respectively.
     #
-    def initialize(mc_file, res_file=nil, dll_file=nil)
+    def initialize(mc_file, res_file = nil, dll_file = nil)
       @mc_file = mc_file
 
       if res_file
         @res_file = res_file
       else
-        @res_file = File.basename(mc_file, '.mc') + '.res'
+        @res_file = File.basename(mc_file, ".mc") + ".res"
       end
 
       if dll_file
         @dll_file = dll_file
       else
-        @dll_file = File.basename(mc_file, '.mc') + '.dll'
+        @dll_file = File.basename(mc_file, ".mc") + ".dll"
       end
     end
 
@@ -56,10 +56,11 @@ module Win32
     # found.
     #
     def create_res_file
-      rc_file = File.basename(@mc_file, '.mc') + '.rc'
+      rc_file = File.basename(@mc_file, ".mc") + ".rc"
       unless File.exist?(rc_file)
         raise MC::Error, "No .rc file found: #{@rc_file}"
       end
+
       system("rc -r -fo #{@res_file} #{rc_file}")
     end
 
@@ -71,6 +72,7 @@ module Win32
       unless File.exist?(@res_file)
         raise MC::Error, "No .res file found: #{@res_file}"
       end
+
       system("link -dll -noentry -out:#{@dll_file} #{@res_file}")
     end
 
@@ -88,9 +90,9 @@ module Win32
     # files in the current directory.
     #
     def clean
-      base = File.basename(@mc_file, '.mc')
+      base = File.basename(@mc_file, ".mc")
 
-      %w[.h .rc .res].each do |ext|
+      %w{.h .rc .res}.each do |ext|
         file = base + ext
         File.delete(file) if File.exist?(file)
       end
@@ -106,7 +108,7 @@ if $PROGRAM_NAME == __FILE__
   mc_file = ARGV[0]
 
   if mc_file
-     mc_file.chomp!
+    mc_file.chomp!
   else
     msg = "Usage: ruby mc.rb 'filename.mc'"
     raise Win32::MC::Error, msg
