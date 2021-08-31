@@ -16,9 +16,10 @@ branches:
   only:
     - master
 
-bundler_args: --jobs 7 --without docs debug
+bundler_args: --jobs 7
 
 before_install:
+  - bundle config set --local without docs debug
   - gem update bundler
   - gem update --system
 
