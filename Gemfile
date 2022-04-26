@@ -6,6 +6,7 @@ group :test do
   gem "ptools"
   gem "test-unit"
   gem "rake"
+  gem "win32-file"
 end
 
 group :docs do

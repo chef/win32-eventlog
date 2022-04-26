@@ -9,12 +9,24 @@ expeditor:
           limit: 1
       timeout_in_minutes: 30
 
-# why do we test on Linux? It's the easiest way to run specs quickly on multiple ruby versions so we test on Windows and then on various ruby releases using Linux agents
 steps:
-- label: lint-chefstyle
+
+- label: run-specs-ruby-3.0-windows
   command:
-    - .expeditor/run_linux_tests.sh "rake style"
+    - .expeditor/run_windows_tests.ps1
   expeditor:
     executor:
       docker:
-        image: ruby:2.4-buster
+        host_os: windows
+        shell: ["powershell", "-Command"]
+        image: rubydistros/windows-2019:3.0
+
+- label: run-specs-ruby-3.1-windows
+  command:
+    - .expeditor/run_windows_tests.ps1
+  expeditor:
+    executor:
+      docker:
+        host_os: windows
+        shell: ["powershell", "-Command"]
+        image: rubydistros/windows-2019:3.1
