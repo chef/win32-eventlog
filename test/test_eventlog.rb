@@ -14,6 +14,24 @@ include Win32
 class TC_Win32_EventLog < Test::Unit::TestCase
   def self.startup
     @@hostname = Socket.gethostname
+    @@rpc_available = check_rpc_connectivity(@@hostname)
+  end
+
+  # Helper method to check if RPC connectivity is available to a given host
+  def self.check_rpc_connectivity(host)
+    # Try to open a connection to the RPC server on the given host
+    # Using a minimal operation to test connectivity
+    EventLog.new("System", host).close
+    true
+  rescue SystemCallError => e
+    if e.message.include?("RPC server is unavailable")
+      puts "Warning: RPC server is unavailable on #{host}, some tests will be skipped"
+      false
+    else
+      # If we get another error, the RPC server might be available but
+      # something else is wrong. Return true to let the tests run and fail normally.
+      true
+    end
   end
 
   def setup
@@ -42,6 +60,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "constructor accepts a host name" do
+    skip "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     assert_nothing_raised { EventLog.new("System", @@hostname) }
   end
 

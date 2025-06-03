@@ -30,17 +30,9 @@ module Win32
     def initialize(mc_file, res_file = nil, dll_file = nil)
       @mc_file = mc_file
 
-      if res_file
-        @res_file = res_file
-      else
-        @res_file = File.basename(mc_file, ".mc") + ".res"
-      end
+      @res_file = res_file || File.basename(mc_file, ".mc") + ".res"
 
-      if dll_file
-        @dll_file = dll_file
-      else
-        @dll_file = File.basename(mc_file, ".mc") + ".dll"
-      end
+      @dll_file = dll_file || File.basename(mc_file, ".mc") + ".dll"
     end
 
     # Uses the message compiler (mc) program to generate the .h and .rc
