@@ -60,7 +60,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "constructor accepts a host name" do
-    skip "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     assert_nothing_raised { EventLog.new("System", @@hostname) }
   end
 
@@ -78,12 +78,14 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "source accessor method basic functionality" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     @log = EventLog.new("Application", @@hostname)
     assert_respond_to(@log, :source)
     assert_equal("Application", @log.source)
   end
 
   test "server accessor method basic functionality" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     @log = EventLog.new("Application", @@hostname)
     assert_respond_to(@log, :server)
     assert_equal(@@hostname, @log.server)
@@ -109,12 +111,14 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "open_backup works as expected" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     EventLog.new("Application", @@hostname) { |log| log.backup(@bakfile) }
     assert_nothing_raised { @log = EventLog.open_backup(@bakfile) }
     assert_kind_of(EventLog, @log)
   end
 
   test "it is possible to read and close the backup log file" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     EventLog.new("Application", @@hostname) { |log| log.backup(@bakfile) }
     @log = EventLog.open_backup(@bakfile)
     assert_nothing_raised { @log.read { break } }
