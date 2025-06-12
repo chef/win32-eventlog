@@ -9,6 +9,10 @@ group :test do
   gem "win32-file"
 end
 
+group :style do
+  gem "cookstyle", "~> 8.1"
+end
+
 group :docs do
   gem "yard"
   gem "redcarpet"

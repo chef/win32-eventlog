@@ -6,12 +6,13 @@ Gem::Specification.new do |spec|
   spec.email      = "djberg96@gmail.com"
   spec.homepage   = "http://github.com/chef/win32-eventlog"
   spec.summary    = "Interface for the MS Windows Event Log."
-  spec.test_files = Dir["test/*.rb"]
   spec.files      = `git ls-files -z`.split("\x0").reject { |f| f.match(/^(\..*|Gemfile|Rakefile|doc|examples|VERSION|appveyor.yml|test|spec)/) }
 
   spec.extra_rdoc_files = ["README.md", "CHANGELOG.md", "doc/tutorial.txt"]
 
   spec.add_dependency("ffi")
+
+  spec.add_development_dependency("chef-utils", "~> 18.1")
 
   spec.description = <<-EOF
     The win32-eventlog library provides an interface to the MS Windows event

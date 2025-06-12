@@ -14,6 +14,24 @@ include Win32
 class TC_Win32_EventLog < Test::Unit::TestCase
   def self.startup
     @@hostname = Socket.gethostname
+    @@rpc_available = check_rpc_connectivity(@@hostname)
+  end
+
+  # Helper method to check if RPC connectivity is available to a given host
+  def self.check_rpc_connectivity(host)
+    # Try to open a connection to the RPC server on the given host
+    # Using a minimal operation to test connectivity
+    EventLog.new("System", host).close
+    true
+  rescue SystemCallError => e
+    if e.message.include?("RPC server is unavailable")
+      puts "Warning: RPC server is unavailable on #{host}, some tests will be skipped"
+      false
+    else
+      # If we get another error, the RPC server might be available but
+      # something else is wrong. Return true to let the tests run and fail normally.
+      true
+    end
   end
 
   def setup
@@ -42,6 +60,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "constructor accepts a host name" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     assert_nothing_raised { EventLog.new("System", @@hostname) }
   end
 
@@ -59,12 +78,14 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "source accessor method basic functionality" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     @log = EventLog.new("Application", @@hostname)
     assert_respond_to(@log, :source)
     assert_equal("Application", @log.source)
   end
 
   test "server accessor method basic functionality" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     @log = EventLog.new("Application", @@hostname)
     assert_respond_to(@log, :server)
     assert_equal(@@hostname, @log.server)
@@ -90,12 +111,14 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "open_backup works as expected" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     EventLog.new("Application", @@hostname) { |log| log.backup(@bakfile) }
     assert_nothing_raised { @log = EventLog.open_backup(@bakfile) }
     assert_kind_of(EventLog, @log)
   end
 
   test "it is possible to read and close the backup log file" do
+    omit "Skipping test: RPC server is unavailable on #{@@hostname}" unless @@rpc_available
     EventLog.new("Application", @@hostname) { |log| log.backup(@bakfile) }
     @log = EventLog.open_backup(@bakfile)
     assert_nothing_raised { @log.read { break } }

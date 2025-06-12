@@ -194,7 +194,7 @@ module Win32
 
       # Default values
       hash = {
-        "source"          => "Application",
+        "source" => "Application",
         "supported_types" => ERROR_TYPE | WARN_TYPE | INFO_TYPE,
       }
 
@@ -657,10 +657,10 @@ module Win32
 
       # Default values
       hash = {
-        "source"   => @source,
+        "source" => @source,
         "event_id" => 0,
         "category" => 0,
-        "data"     => 0,
+        "data" => 0,
         "user_sid" => nil,
       }
 
@@ -698,10 +698,8 @@ module Win32
 
         num_strings = 1
       elsif hash["data"].is_a?(Array)
-        strptrs = []
-
-        hash["data"].each { |str|
-          strptrs << FFI::MemoryPointer.from_string(str)
+        strptrs = hash["data"].map { |str|
+          FFI::MemoryPointer.from_string(str)
         }
 
         strptrs << nil
@@ -947,14 +945,14 @@ module Win32
           wevent_source = (event_source + 0.chr).encode("UTF-16LE")
 
           begin
-            pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, nil, 1024, 0)
+            pubMetadata = EvtOpenPublisherMetadata(0, wevent_source, nil, 1024, 0) # rubocop:disable Naming/VariableName
 
-            if pubMetadata > 0
+            if pubMetadata > 0 # rubocop:disable Naming/VariableName
               buf2 = FFI::MemoryPointer.new(:char, 8192)
               val  = FFI::MemoryPointer.new(:ulong)
 
               bool = EvtGetPublisherMetadataProperty(
-                pubMetadata,
+                pubMetadata, # rubocop:disable Naming/VariableName
                 2, # EvtPublisherMetadataParameterFilePath
                 0,
                 buf2.size,
@@ -975,7 +973,7 @@ module Win32
               val.clear
 
               bool = EvtGetPublisherMetadataProperty(
-                pubMetadata,
+                pubMetadata, # rubocop:disable Naming/VariableName
                 3, # EvtPublisherMetadataMessageFilePath
                 0,
                 buf2.size,
@@ -998,7 +996,7 @@ module Win32
               exe.free
             end
           ensure
-            EvtClose(pubMetadata) if pubMetadata
+            EvtClose(pubMetadata) if pubMetadata # rubocop:disable Naming/VariableName
           end
         end
 
@@ -1027,7 +1025,7 @@ module Win32
 
                   if res == 0
                     event_id = 0xB0000000 | event_id
-                    res = FormatMessage(
+                    FormatMessage(
                       FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
                       hmodule,
                       event_id,
@@ -1078,7 +1076,7 @@ module Win32
                 buf.clear
                 event_id = 0xB0000000 | event_id
 
-                res = FormatMessage(
+                FormatMessage(
                   FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_IGNORE_INSERTS,
                   hmodule,
                   event_id,
@@ -1103,8 +1101,7 @@ module Win32
           if num == 0
             va_list_ptr = FFI::MemoryPointer.new(:pointer)
           else
-            strptrs = []
-            va_list.each { |x| strptrs << FFI::MemoryPointer.from_string(x) }
+            strptrs = va_list.map { |x| FFI::MemoryPointer.from_string(x) }
             strptrs << nil
 
             va_list_ptr = FFI::MemoryPointer.new(:pointer, strptrs.size)
@@ -1138,7 +1135,7 @@ module Win32
               if res == 0
                 event_id = 0xB0000000 | event_id
 
-                res = FormatMessage(
+                FormatMessage(
                   FORMAT_MESSAGE_FROM_HMODULE | FORMAT_MESSAGE_ARGUMENT_ARRAY,
                   hmodule,
                   event_id,
