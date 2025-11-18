@@ -65,6 +65,7 @@ win32-eventlog/
 **Platform**: Windows-specific (Windows Server 2022, 2025)
 
 **Development Dependencies**:
+
 - `cookstyle` - Code style enforcement
 - `test-unit` - Testing framework
 - `ptools` - Additional platform tools
@@ -74,6 +75,7 @@ win32-eventlog/
 ## Issue (Jira/Tracker) Integration
 
 If an issue key is supplied:
+
 - MUST parse: summary, description, acceptance criteria, issue type, linked issues, labels/tags
 - Implementation Plan MUST include:
   - Goal
@@ -90,6 +92,7 @@ If an issue key is supplied:
 ## Workflow Overview
 
 Phases (AI MUST follow in order):
+
 1. Intake & Clarify
 2. Repository Analysis
 3. Plan Draft
@@ -107,11 +110,13 @@ Each phase ends with: Step Summary + Checklist + "Continue to next step? (yes/no
 ## Detailed Step Instructions
 
 **Principles (MUST)**:
+
 - Smallest cohesive change per commit
 - Add/adjust tests immediately with each behavior change
 - Present a mapping of changes to tests before committing
 
 **Example Step Output**:
+
 ```
 Step: Add boundary guard in parser
 Summary: Added nil check & size constraint; tests added for empty input & overflow.
@@ -133,6 +138,7 @@ If user responds other than explicit "yes" → AI MUST pause & clarify.
 **PR MUST remain draft until**: tests pass + lint/style pass + coverage mapping completed
 
 **PR Description Sections (MUST)**: Uses existing template structure with additional sections:
+
 - Description
 - Issues Resolved
 - Check List (with DCO requirement)
@@ -140,6 +146,7 @@ If user responds other than explicit "yes" → AI MUST pause & clarify.
 - Risk & Mitigations
 
 **Risk Classification (MUST pick one)**:
+
 - Low: Localized, non-breaking
 - Moderate: Shared module / light interface touch
 - High: Public API change / performance / security / migration
@@ -149,6 +156,7 @@ If user responds other than explicit "yes" → AI MUST pause & clarify.
 ## Commit & DCO Policy
 
 **Commit format (MUST)**:
+
 ```
 TYPE(OPTIONAL_SCOPE): SUBJECT (ISSUE_KEY)
 
@@ -168,6 +176,7 @@ Missing sign-off → block and request name/email.
 **Coverage Threshold (MUST)**: ≥80% changed lines (qualitative reasoning allowed if tooling absent). If below: add tests or refactor for testability.
 
 **Edge Cases (MUST enumerate for each plan)**:
+
 - Large input / boundary size
 - Empty / nil input
 - Invalid / malformed data
@@ -176,6 +185,7 @@ Missing sign-off → block and request name/email.
 - Windows API error conditions
 
 **Test Commands**:
+
 - `bundle exec rake test` - Run all tests
 - `bundle exec rake test:eventlog` - Event log tests only
 - `bundle exec rake test:mc` - Message compiler tests only
@@ -207,10 +217,12 @@ Missing sign-off → block and request name/email.
 ## CI / Release Automation Integration
 
 **GitHub Actions Workflows**:
+
 - `unit.yml`: Unit tests on Windows 2022/2025 with Ruby 3.1/3.4, triggered on PR and master push
 - `lint.yml`: Cookstyle linting on Ubuntu, triggered on PR and main push
 
 **Chef Expeditor Integration**:
+
 - Automatic version bumping based on PR labels
 - Changelog generation from merged PRs
 - RubyGems publishing on version promotion
@@ -222,6 +234,7 @@ Missing sign-off → block and request name/email.
 ## Security & Protected Files
 
 **Protected (NEVER edit without explicit approval)**:
+
 - CODE_OF_CONDUCT.md
 - CODEOWNERS
 - .expeditor/ (all files)
@@ -230,6 +243,7 @@ Missing sign-off → block and request name/email.
 - VERSION
 
 **NEVER**:
+
 - Exfiltrate or inject secrets
 - Force-push default branch
 - Merge PR autonomously
@@ -240,6 +254,7 @@ Missing sign-off → block and request name/email.
 ## Prompts Pattern
 
 After each step AI MUST output:
+
 ```
 Step: STEP_NAME
 Summary: CONCISE_OUTCOME
@@ -252,6 +267,7 @@ Non-affirmative response → AI MUST pause & clarify.
 ## Validation & Exit Criteria
 
 Task is COMPLETE ONLY IF:
+
 1. Feature/fix branch exists & pushed
 2. Lint/style passes (`bundle exec rake style`)
 3. Tests pass (`bundle exec rake test`)
@@ -288,12 +304,15 @@ Proceed? (yes/no)
 The repository has an existing PR template that MUST be used as the base structure:
 
 ### Description
+
 [Please describe what this change achieves]
 
 ### Issues Resolved
+
 [List any existing issues this PR resolves, or any Discourse or StackOverflow discussions that are relevant]
 
 ### Check List
+
 - [ ] New functionality includes tests
 - [ ] All tests pass
 - [ ] All commits have been signed-off for the Developer Certificate of Origin
@@ -301,19 +320,23 @@ The repository has an existing PR template that MUST be used as the base structu
 **Additional required sections to inject**:
 
 ### Tests & Coverage
+
 Changed lines: N; Estimated covered: ~X%; Mapping complete.
 
 ### Risk & Mitigations
+
 Risk: Low | Mitigation: revert commit SHA
 
 ## Idempotency Rules
 
 **Re-entry Detection Order (MUST)**:
+
 1. Branch existence (`git rev-parse --verify <branch>`)
 2. PR existence (`gh pr list --head <branch>`)
 3. Uncommitted changes (`git status --porcelain`)
 
 **Delta Summary (MUST)**:
+
 - Added Sections:
 - Modified Sections:
 - Deprecated Sections:
@@ -322,6 +345,7 @@ Risk: Low | Mitigation: revert commit SHA
 ## Failure Handling
 
 **Decision Tree (MUST)**:
+
 - Labels fetch fails → Abort; prompt: "Provide label list manually or fix auth. Retry? (yes/no)"
 - Issue fetch incomplete → Ask: "Missing acceptance criteria—provide or proceed with inferred? (provide/proceed)"
 - Coverage < threshold → Add tests; re-run; block commit until satisfied
@@ -363,3 +387,49 @@ bundle exec rake example:notify # Run notify example
 bundle exec rake docs           # Generate documentation
 bundle exec rake console        # Start interactive console
 ```
+
+## AI-Assisted Development & Compliance
+
+- ✅ Create PR with `ai-assisted` label (if label doesn't exist, create it with description "Work completed with AI assistance following Progress AI policies" and color "9A4DFF")
+- ✅ Include "This work was completed with AI assistance following Progress AI policies" in PR description
+
+### Jira Ticket Updates (MANDATORY)
+
+- ✅ **IMMEDIATELY after PR creation**: Update Jira ticket custom field `customfield_11170` ("Does this Work Include AI Assisted Code?") to "Yes"
+- ✅ Use atlassian-mcp tools to update the Jira field programmatically
+- ✅ **CRITICAL**: Use correct field format: `{"customfield_11170": {"value": "Yes"}}`
+- ✅ Verify the field update was successful
+
+### Documentation Requirements
+
+- ✅ Reference AI assistance in commit messages where appropriate
+- ✅ Document any AI-generated code patterns or approaches in PR description
+- ✅ Maintain transparency about which parts were AI-assisted vs manual implementation
+
+### Workflow Integration
+
+This AI compliance checklist should be integrated into the main development workflow Step 4 (Pull Request Creation):
+
+```
+Step 4: Pull Request Creation & AI Compliance
+- Step 4.1: Create branch and commit changes WITH SIGNED-OFF COMMITS
+- Step 4.2: Push changes to remote
+- Step 4.3: Create PR with ai-assisted label
+- Step 4.4: IMMEDIATELY update Jira customfield_11170 to "Yes"
+- Step 4.5: Verify both PR labels and Jira field are properly set
+- Step 4.6: Provide complete summary including AI compliance confirmation
+```
+
+- **Never skip Jira field updates** - This is required for Progress AI governance
+- **Always verify updates succeeded** - Check response from atlassian-mcp tools
+- **Treat as atomic operation** - PR creation and Jira updates should happen together
+- **Double-check before final summary** - Confirm all AI compliance items are completed
+
+### Audit Trail
+
+All AI-assisted work must be traceable through:
+
+1. GitHub PR labels (`ai-assisted`)
+2. Jira custom field (`customfield_11170` = "Yes")
+3. PR descriptions mentioning AI assistance
+4. Commit messages where relevant
