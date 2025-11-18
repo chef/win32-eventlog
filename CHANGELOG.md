@@ -2,16 +2,17 @@
 
 # win32-eventlog Changelog
 
-<!-- latest_release 0.7.0 -->
-## [win32-eventlog-0.7.0](https://github.com/chef/win32-eventlog/tree/win32-eventlog-0.7.0) (2025-06-12)
+<!-- latest_release 0.7.1 -->
+## [win32-eventlog-0.7.1](https://github.com/chef/win32-eventlog/tree/win32-eventlog-0.7.1) (2025-11-18)
 
 #### Merged Pull Requests
-- Updating for Ruby 3.4 and Cookstyle [#39](https://github.com/chef/win32-eventlog/pull/39) ([johnmccrae](https://github.com/johnmccrae))
+- Set up AI-assisted development workflow [#43](https://github.com/chef/win32-eventlog/pull/43) ([rishichawda](https://github.com/rishichawda))
 <!-- latest_release -->
 <!-- release_rollup since=0.6.7 -->
 ### Changes not yet released to rubygems.org
 
 #### Merged Pull Requests
+- Set up AI-assisted development workflow [#43](https://github.com/chef/win32-eventlog/pull/43) ([rishichawda](https://github.com/rishichawda)) <!-- 0.7.1 -->
 - Updating for Ruby 3.4 and Cookstyle [#39](https://github.com/chef/win32-eventlog/pull/39) ([johnmccrae](https://github.com/johnmccrae)) <!-- 0.7.0 -->
 <!-- release_rollup -->
 <!-- latest_stable_release -->
