@@ -8,20 +8,21 @@ on:
       - main
 
 concurrency:
-  group: lint-${{ github.ref }}
+  group: lint-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  lint:
+  cookstyle:
     runs-on: ubuntu-latest
+    env:
+      BUNDLE_WITHOUT: docs:debug:test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.1
+          ruby-version: 3.4
           bundler-cache: false
       - uses: r7kamura/rubocop-problem-matchers-action@v1  # this shows the failures in the PR
       - run: |
-          gem install cookstyle
-          cookstyle --chefstyle -c .rubocop.yml
-  
+          bundle install
+          bundle exec cookstyle --chefstyle -c .rubocop.yml
