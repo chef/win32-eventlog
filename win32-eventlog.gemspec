@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency("ffi")
 
-  spec.add_development_dependency("chef-utils", "~> 18.1")
+  spec.add_development_dependency("chef-utils", "~> 19.3")
 
   spec.description = <<-EOF
     The win32-eventlog library provides an interface to the MS Windows event
