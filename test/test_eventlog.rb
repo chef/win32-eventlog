@@ -43,7 +43,7 @@ class TC_Win32_EventLog < Test::Unit::TestCase
   end
 
   test "version constant is set to expected value" do
-    assert_equal("0.6.7", EventLog::VERSION)
+    assert_equal(File.read(File.join(__dir__, "..", "VERSION")).strip, EventLog::VERSION)
   end
 
   test "constructor basic functionality" do
