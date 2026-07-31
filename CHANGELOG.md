@@ -2,16 +2,17 @@
 
 # win32-eventlog Changelog
 
-<!-- latest_release 0.7.3 -->
-## [win32-eventlog-0.7.3](https://github.com/chef/win32-eventlog/tree/win32-eventlog-0.7.3) (2026-07-31)
+<!-- latest_release 0.7.4 -->
+## [win32-eventlog-0.7.4](https://github.com/chef/win32-eventlog/tree/win32-eventlog-0.7.4) (2026-07-31)
 
 #### Merged Pull Requests
-- Update chef-utils requirement from ~&gt; 18.1 to ~&gt; 19.3 [#49](https://github.com/chef/win32-eventlog/pull/49) ([dependabot[bot]](https://github.com/dependabot[bot]))
+- CHEF-27679 Update and standardize copyright notices to Progress Software Corporation - copyright_update [#45](https://github.com/chef/win32-eventlog/pull/45) ([clintoncwolfe](https://github.com/clintoncwolfe))
 <!-- latest_release -->
 <!-- release_rollup since=0.6.7 -->
 ### Changes not yet released to rubygems.org
 
 #### Merged Pull Requests
+- CHEF-27679 Update and standardize copyright notices to Progress Software Corporation - copyright_update [#45](https://github.com/chef/win32-eventlog/pull/45) ([clintoncwolfe](https://github.com/clintoncwolfe)) <!-- 0.7.4 -->
 - Update chef-utils requirement from ~&gt; 18.1 to ~&gt; 19.3 [#49](https://github.com/chef/win32-eventlog/pull/49) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 0.7.3 -->
 - Consolidate tests to GitHub Actions and fix version test [#48](https://github.com/chef/win32-eventlog/pull/48) ([tpowell-progress](https://github.com/tpowell-progress)) <!-- 0.7.2 -->
 - Set up AI-assisted development workflow [#43](https://github.com/chef/win32-eventlog/pull/43) ([rishichawda](https://github.com/rishichawda)) <!-- 0.7.1 -->
