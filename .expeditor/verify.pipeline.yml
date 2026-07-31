@@ -1,0 +1,18 @@
+---
+# Buildkite verify pipeline stub.
+#
+# Unit tests for this repository have been consolidated onto GitHub Actions
+# (see .github/workflows/unit.yml). This file is kept only because the
+# Buildkite "chef-win32-eventlog-main-verify" pipeline is still configured to
+# trigger on pull requests and requires this file to exist; it intentionally
+# performs no test execution.
+expeditor:
+  defaults:
+    buildkite:
+      timeout_in_minutes: 5
+
+steps:
+
+- label: verify-stub
+  command:
+    - echo "Tests have moved to GitHub Actions (.github/workflows/unit.yml). This Buildkite pipeline is a no-op stub."
