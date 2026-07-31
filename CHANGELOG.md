@@ -2,16 +2,17 @@
 
 # win32-eventlog Changelog
 
-<!-- latest_release 0.7.2 -->
-## [win32-eventlog-0.7.2](https://github.com/chef/win32-eventlog/tree/win32-eventlog-0.7.2) (2026-07-31)
+<!-- latest_release 0.7.3 -->
+## [win32-eventlog-0.7.3](https://github.com/chef/win32-eventlog/tree/win32-eventlog-0.7.3) (2026-07-31)
 
 #### Merged Pull Requests
-- Consolidate tests to GitHub Actions and fix version test [#48](https://github.com/chef/win32-eventlog/pull/48) ([tpowell-progress](https://github.com/tpowell-progress))
+- Update chef-utils requirement from ~&gt; 18.1 to ~&gt; 19.3 [#49](https://github.com/chef/win32-eventlog/pull/49) ([dependabot[bot]](https://github.com/dependabot[bot]))
 <!-- latest_release -->
 <!-- release_rollup since=0.6.7 -->
 ### Changes not yet released to rubygems.org
 
 #### Merged Pull Requests
+- Update chef-utils requirement from ~&gt; 18.1 to ~&gt; 19.3 [#49](https://github.com/chef/win32-eventlog/pull/49) ([dependabot[bot]](https://github.com/dependabot[bot])) <!-- 0.7.3 -->
 - Consolidate tests to GitHub Actions and fix version test [#48](https://github.com/chef/win32-eventlog/pull/48) ([tpowell-progress](https://github.com/tpowell-progress)) <!-- 0.7.2 -->
 - Set up AI-assisted development workflow [#43](https://github.com/chef/win32-eventlog/pull/43) ([rishichawda](https://github.com/rishichawda)) <!-- 0.7.1 -->
 - Updating for Ruby 3.4 and Cookstyle [#39](https://github.com/chef/win32-eventlog/pull/39) ([johnmccrae](https://github.com/johnmccrae)) <!-- 0.7.0 -->
