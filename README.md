@@ -56,7 +56,7 @@ If the tests from the test_mc.rb file are omitted then you either don't have the
 
 - JRuby users may need to increase their heap space.
 
-Please file any bug reports on the project page at <http://github.com/chef/win32-eventlog>.
+Please file any bug reports on the project page at <https://github.com/chef/win32-eventlog>.
 
 ## Alternatives
 
