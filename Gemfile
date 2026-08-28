@@ -10,7 +10,7 @@ group :test do
 end
 
 group :style do
-  gem "cookstyle", "~> 8.1"
+  gem "cookstyle", "~> 9.0"
 end
 
 group :docs do
